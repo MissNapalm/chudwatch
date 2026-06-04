@@ -8,6 +8,10 @@
         .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
         h1 { color: #0f0c5d; text-align: center; margin-bottom: 5px; }
         .status-bar { text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 0; margin-bottom: 20px; }
+        .tab-btn { background: #d3b49f; border: none; padding: 15px 30px; cursor: pointer; font-weight: bold; font-size: 16px; color: #333; transition: all 0.3s; }
+        .tab-btn:hover { background: #c9a382; }
+        .tab-btn.active { background: #0f0c5d; color: #fff; }
         .card { background: #f7f3e9; border: 1px solid #d3b49f; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
         .search-area { display: flex; gap: 10px; margin-bottom: 20px; }
         input { flex: 1; padding: 10px; border: 1px solid #d3b49f; border-radius: 4px; font-size: 16px; }
@@ -18,11 +22,27 @@
         .alert { color: red; font-weight: bold; }
         .muted { color: #666; font-size: 12px; }
         .count-bar { background: #f7f3e9; padding: 10px; margin-bottom: 15px; border: 1px solid #d3b49f; font-weight: bold; }
+        #loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; }
+        .loading-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 40px; border-radius: 10px; text-align: center; }
+        .loading-content h2 { color: #0f0c5d; margin-bottom: 20px; }
+        .spinner { border: 4px solid #d3b49f; border-top: 4px solid #0f0c5d; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .progress-text { color: #666; font-size: 14px; margin-top: 10px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body>
+    <div id="loading">
+        <div class="loading-content">
+            <h2>ChudWatch Loading</h2>
+            <div class="spinner"></div>
+            <div class="progress-text" id="progressText">Harvesting posts from /pol/...</div>
+        </div>
+    </div>
+
     <div class="container">
-        <h1><img src="chud.png" alt="" style="height: 50px; vertical-align: middle; margin-right: 20px;"><img src="logo.png" alt="" style="height: 35px; vertical-align: middle; margin-right: 10px;">ChudWatch<img src="logo.png" alt="" style="height: 35px; vertical-align: middle; margin-left: 10px;"><img src="chud.png" alt="" style="height: 50px; vertical-align: middle; margin-left: 20px;"></h1>
+        <h1><img src="chud.png" alt="" style="height: 90px; vertical-align: middle; margin-right: 20px;"><img src="logo.png" alt="" style="height: 50px; vertical-align: middle; margin-right: 10px;">ChudWatch<img src="logo.png" alt="" style="height: 50px; vertical-align: middle; margin-left: 10px;"><img src="chud.png" alt="" style="height: 90px; vertical-align: middle; margin-left: 20px;"></h1>
         <div class="status-bar" id="statusBar">Connecting to data...</div>
         
         <div class="card">
@@ -32,7 +52,14 @@
             <input type="text" id="search" placeholder="Enter keyword to search..." onkeydown="if(event.key==='Enter') render()">
             <button onclick="render()">Search</button>
         </div>
-        <div id="feed"></div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('posts')">Posts</button>
+            <button class="tab-btn" onclick="switchTab('threads')">Threads (OPs)</button>
+        </div>
+
+        <div id="posts" class="tab-content active"></div>
+        <div id="threads" class="tab-content"></div>
     </div>
 
     <script>
@@ -44,12 +71,20 @@
             return tmp.textContent || tmp.innerText || '';
         }
 
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+            render();
+        }
+
         async function load() {
             try {
                 const [pRes, tRes, mRes] = await Promise.all([
-                    fetch('posts.json'),
-                    fetch('trends.json'),
-                    fetch('metrics.json')
+                    fetch('posts.json?t=' + Date.now()),
+                    fetch('trends.json?t=' + Date.now()),
+                    fetch('metrics.json?t=' + Date.now())
                 ]);
                 
                 if (!pRes.ok || !tRes.ok || !mRes.ok) {
@@ -61,6 +96,7 @@
                 const metrics = await mRes.json();
 
                 document.getElementById('statusBar').innerText = `Database Loaded: ${Array.isArray(POSTS) ? POSTS.length : 0} posts indexed.`;
+                document.getElementById('loading').style.display = 'none';
 
                 const trends = Array.isArray(trendsRaw) ? trendsRaw : [];
                 document.getElementById('trends').innerHTML = trends.slice(0, 20).map(t => {
@@ -73,8 +109,8 @@
 
                 render();
             } catch (e) {
-                document.getElementById('statusBar').innerHTML = `<span class="alert">Error loading data: ${e.message}</span>`;
-                console.error('load error', e);
+                document.getElementById('progressText').innerText = 'Waiting for data to populate... (will auto-refresh)';
+                document.getElementById('loading').style.display = 'block';
             }
         }
 
@@ -82,18 +118,30 @@
 
         function render() {
             const q = document.getElementById('search').value.trim().toLowerCase();
-            const feed = document.getElementById('feed');
+            const activeTab = document.querySelector('.tab-btn.active').textContent.trim();
+            
             if (!Array.isArray(POSTS) || POSTS.length === 0) {
-                feed.innerHTML = '<div class="muted">No posts indexed yet.</div>';
+                document.getElementById('posts').innerHTML = '<div class="muted">No posts indexed yet.</div>';
                 return;
             }
+
+            if (activeTab === 'Posts') {
+                renderPosts(q);
+            } else {
+                renderThreads(q);
+            }
+        }
+
+        function renderPosts(q) {
             const filtered = q ? POSTS.filter(p => (p.comment || '').toLowerCase().includes(q)) : POSTS;
             const slice = filtered.slice(0, 100);
+            
             if (slice.length === 0) {
-                feed.innerHTML = `<div class="muted">No posts match "${q}".</div>`;
+                document.getElementById('posts').innerHTML = `<div class="muted">No posts match "${q}".</div>`;
                 return;
             }
-            feed.innerHTML = `<div class="count-bar">Found <b>${filtered.length}</b> posts matching "${q}"</div>` + slice.map(p => {
+
+            document.getElementById('posts').innerHTML = `<div class="count-bar">Found <b>${filtered.length}</b> posts matching "${q}"</div>` + slice.map(p => {
                 let cleanComment = stripHTML(p.comment || '');
                 cleanComment = cleanComment.replace(/>>(\d+)([^\s])/g, '>>$1 $2');
                 cleanComment = cleanComment.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -105,8 +153,46 @@
             }).join('');
         }
 
+        function renderThreads(q) {
+            // Filter to OPs only (posts with no post_id reply_to, or first post of thread)
+            const opMap = {};
+            POSTS.forEach(p => {
+                if (!opMap[p.thread_id]) {
+                    opMap[p.thread_id] = p;
+                }
+            });
+
+            const ops = Object.values(opMap);
+            const filtered = q ? ops.filter(p => (p.comment || '').toLowerCase().includes(q)) : ops;
+            const slice = filtered.slice(0, 100);
+
+            if (slice.length === 0) {
+                document.getElementById('threads').innerHTML = `<div class="muted">No threads match "${q}".</div>`;
+                return;
+            }
+
+            document.getElementById('threads').innerHTML = `<div class="count-bar">Found <b>${filtered.length}</b> threads matching "${q}"</div>` + slice.map(p => {
+                let cleanComment = stripHTML(p.comment || '');
+                cleanComment = cleanComment.replace(/>>(\d+)([^\s])/g, '>>$1 $2');
+                cleanComment = cleanComment.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const thread = p.thread_id || 'unknown';
+                const pid = p.post_id || '—';
+                return `<div class="post-card"><b>OP</b> No.${pid}: 
+                    <a href="https://boards.4channel.org/pol/thread/${thread}" target="_blank" rel="noopener noreferrer">[View Thread]</a>
+                    <div style="margin-top:8px; white-space:pre-wrap;">${cleanComment}</div></div>`;
+            }).join('');
+        }
+
+        let lastDataTime = 0;
         load();
-        setInterval(load, 10000);
+        const fastRefresh = setInterval(() => {
+            if (POSTS.length > 0) {
+                clearInterval(fastRefresh);
+                setInterval(load, 10000);
+            } else {
+                load();
+            }
+        }, 3000);
     </script>
 </body>
 </html>

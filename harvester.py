@@ -56,7 +56,7 @@ def save_and_analyze(posts):
     
     update_trends(conn)
     
-    c.execute("SELECT post_id, thread_id, name, time, comment FROM posts ORDER BY post_id DESC LIMIT 1000")
+    c.execute("SELECT post_id, thread_id, name, time, comment FROM posts ORDER BY post_id DESC LIMIT 5000")
     all_posts = [{"post_id": r[0], "thread_id": r[1], "name": r[2], "time": r[3], "comment": r[4]} for r in c.fetchall()]
     
     posts_file = os.path.join(SCRIPT_DIR, 'posts.json')
@@ -141,7 +141,7 @@ def run_harvest():
                 threads.extend([t['no'] for t in page.get('threads', [])])
             
             all_posts = []
-            for i, thread_id in enumerate(threads[:50]):
+            for i, thread_id in enumerate(threads[:100]):  # Changed from 50 to 100
                 try:
                     thread_url = f"https://a.4cdn.org/{BOARD}/thread/{thread_id}.json"
                     tr = requests.get(thread_url, timeout=10)
@@ -152,7 +152,7 @@ def run_harvest():
                 except:
                     pass
                 if (i + 1) % 10 == 0:
-                    print(f"[ Progress: {i+1}/{len(threads[:50])} threads downloaded ]")
+                    print(f"[ Progress: {i+1}/{len(threads[:100])} threads downloaded ]")
             
             print(f"[+] Harvested {len(all_posts)} posts")
             save_and_analyze(all_posts)

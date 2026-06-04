@@ -73,38 +73,60 @@ def update_trends(conn):
 
     if nlp:
         entity_counts = collections.Counter()
+        noun_counts = collections.Counter()
         target_labels = {'GPE', 'PERSON', 'ORG', 'NORP'}
 
         for row in rows:
             text = row[0]
             if not text:
                 continue
+            # Strip ALL HTML tags and entities
             cleaned = re.sub(r'<[^>]+>', ' ', text)
+            cleaned = re.sub(r'&[a-z]+;', ' ', cleaned)
+            cleaned = re.sub(r'https?://\S+', ' ', cleaned)
+            
             doc = nlp(cleaned)
+            
+            # Extract named entities
             for ent in doc.ents:
                 if ent.label_ in target_labels:
                     clean_ent = ent.text.strip().title()
                     if len(clean_ent) > 2:
                         entity_counts[clean_ent] += 1
+            
+            # Extract proper nouns (PROPN) only
+            for token in doc:
+                if token.pos_ == 'PROPN' and len(token.text) > 3 and not token.is_stop:
+                    clean_token = token.text.strip().title()
+                    noun_counts[clean_token] += 1
 
-        trends_out = entity_counts.most_common(20)
+        # Combine and filter out HTML garbage
+        combined = entity_counts + noun_counts
+        html_garbage = {'Class', 'Href', 'Quotelink', 'Span', 'Quote', 'Quot', 'Br', 'Div', 'Http', 'Https'}
+        filtered = [(word, count) for word, count in combined.most_common(50) if word not in html_garbage]
+        trends_out = filtered[:25]
+        
+        print(f"[+] Writing trends.json ({len(trends_out)} topics)")
         trends_file = os.path.join(SCRIPT_DIR, 'trends.json')
-        print(f"[+] Writing {trends_file}")
         with open(trends_file, 'w') as f:
             json.dump(trends_out, f)
         return
 
+    # Fallback: extract capitalized words
     words = []
-    stop_words = {'the','and','this','that','with','from','they','have','there','would','about','just','for','or','is','are','be','to','in','of','a','an','on','at','by','it','as'}
     for row in rows:
         if row[0]:
-            words.extend(re.findall(r'\b[a-z]{4,}\b', row[0].lower()))
+            cleaned = re.sub(r'<[^>]+>', ' ', row[0])
+            cleaned = re.sub(r'&[a-z]+;', ' ', cleaned)
+            words.extend(re.findall(r'\b[A-Z][a-z]{3,}\b', cleaned))
 
-    counts = collections.Counter([w for w in words if w not in stop_words]).most_common(20)
+    html_garbage = {'class', 'href', 'quotelink', 'span', 'quote', 'quot', 'br', 'div', 'http', 'https'}
+    counts = [(w, c) for w, c in collections.Counter(words).most_common(50) if w.lower() not in html_garbage]
+    
     trends_file = os.path.join(SCRIPT_DIR, 'trends.json')
-    print(f"[+] Writing {trends_file}")
+    print(f"[+] Writing trends.json ({len(counts[:25])} topics)")
     with open(trends_file, 'w') as f:
-        json.dump(counts, f)
+        json.dump(counts[:25], f)
 
 def run_harvest():
     print(f"[*] Starting ChudWatch harvest on /{BOARD}/...")

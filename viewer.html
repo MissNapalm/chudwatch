@@ -3,11 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <title>ChudWatch | Political Sentiment Monitor</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/jasondavies/d3-cloud/build/d3.layout.cloud.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background: #f0eade; color: #800000; margin: 20px; }
-        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
+        .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
         h1 { color: #0f0c5d; text-align: center; margin-bottom: 5px; }
         .status-bar { text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #d3b49f; }
+        .tab-btn { background: #f7f3e9; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-bottom: 3px solid transparent; }
+        .tab-btn.active { border-bottom-color: #0f0c5d; background: #fff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         .card { background: #f7f3e9; border: 1px solid #d3b49f; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
         .search-area { display: flex; gap: 10px; margin-bottom: 20px; }
         input { flex: 1; padding: 10px; border: 1px solid #d3b49f; border-radius: 4px; font-size: 16px; }
@@ -18,29 +25,97 @@
         .alert { color: red; font-weight: bold; }
         .muted { color: #666; font-size: 12px; }
         .count-bar { background: #f7f3e9; padding: 10px; margin-bottom: 15px; border: 1px solid #d3b49f; font-weight: bold; }
+        #wordcloud { width: 100%; height: 400px; }
+        .word { cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>👁️ ChudWatch</h1>
         <div class="status-bar" id="statusBar">Connecting to data...</div>
-        <div class="card">
-            <strong>Trending:</strong> <span id="trends"></span>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('feed')">Feed</button>
+            <button class="tab-btn" onclick="switchTab('wordcloud')">Trending Cloud</button>
         </div>
-        <div class="search-area">
-            <input type="text" id="search" placeholder="Enter keyword to search..." onkeydown="if(event.key==='Enter') render()">
-            <button onclick="render()">Search</button>
+
+        <div id="feed" class="tab-content active">
+            <div class="card">
+                <strong>Trending:</strong> <span id="trends"></span>
+            </div>
+            <div class="search-area">
+                <input type="text" id="search" placeholder="Enter keyword to search..." onkeydown="if(event.key==='Enter') render()">
+                <button onclick="render()">Search</button>
+            </div>
+            <div id="feed-content"></div>
         </div>
-        <div id="feed"></div>
+
+        <div id="wordcloud" class="tab-content">
+            <svg id="wordcloud-svg"></svg>
+        </div>
     </div>
 
     <script>
         let POSTS = [];
+        let TRENDS = [];
 
         function stripHTML(html) {
             const tmp = document.createElement('DIV');
             tmp.innerHTML = html;
             return tmp.textContent || tmp.innerText || '';
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            if (tabName === 'wordcloud') {
+                renderWordCloud();
+            }
+        }
+
+        function renderWordCloud() {
+            if (!Array.isArray(TRENDS) || TRENDS.length === 0) return;
+
+            const words = TRENDS.slice(0, 50).map(t => ({
+                text: Array.isArray(t) ? String(t[0]) : String(t.name || t),
+                size: Array.isArray(t) ? Number(t[1]) : Number(t.count || 1)
+            }));
+
+            const maxSize = Math.max(...words.map(w => w.size));
+            const minSize = Math.min(...words.map(w => w.size));
+            const sizeScale = d3.scaleLinear().domain([minSize, maxSize]).range([12, 60]);
+
+            d3.layout.cloud()
+                .size([900, 400])
+                .words(words.map(w => ({ text: w.text, size: sizeScale(w.size) })))
+                .padding(5)
+                .rotate(() => (Math.random() > 0.5 ? 0 : 90))
+                .font("Arial")
+                .fontSize(d => d.size)
+                .on("end", draw)
+                .start();
+
+            function draw(words) {
+                d3.select("#wordcloud-svg")
+                    .attr("width", 900)
+                    .attr("height", 400);
+
+                d3.select("#wordcloud-svg")
+                    .append("g")
+                    .attr("transform", "translate(450,200)")
+                    .selectAll("text")
+                    .data(words)
+                    .enter()
+                    .append("text")
+                    .style("font-size", d => d.size + "px")
+                    .style("fill", () => d3.schemeCategory10[Math.floor(Math.random() * 10)])
+                    .attr("text-anchor", "middle")
+                    .attr("transform", d => "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")")
+                    .text(d => d.text)
+                    .on("click", d => setS(d.target.textContent));
+            }
         }
 
         async function load() {
@@ -56,13 +131,12 @@
                 }
 
                 POSTS = await pRes.json();
-                const trendsRaw = await tRes.json();
+                TRENDS = await tRes.json();
                 const metrics = await mRes.json();
 
                 document.getElementById('statusBar').innerText = `Database Loaded: ${Array.isArray(POSTS) ? POSTS.length : 0} posts indexed.`;
 
-                // Render trends
-                const trends = Array.isArray(trendsRaw) ? trendsRaw : [];
+                const trends = Array.isArray(TRENDS) ? TRENDS : [];
                 document.getElementById('trends').innerHTML = trends.slice(0, 20).map(t => {
                     let name = '', count = 0;
                     if (Array.isArray(t)) { name = String(t[0] || ''); count = Number(t[1] || 0); }
@@ -82,7 +156,7 @@
 
         function render() {
             const q = document.getElementById('search').value.trim().toLowerCase();
-            const feed = document.getElementById('feed');
+            const feed = document.getElementById('feed-content');
             if (!Array.isArray(POSTS) || POSTS.length === 0) {
                 feed.innerHTML = '<div class="muted">No posts indexed yet.</div>';
                 return;
@@ -95,10 +169,7 @@
             }
             feed.innerHTML = `<div class="count-bar">Found <b>${filtered.length}</b> posts matching "${q}"</div>` + slice.map(p => {
                 let cleanComment = stripHTML(p.comment || '');
-                // Fix quotes BEFORE HTML escaping
-                cleanComment = cleanComment.replace(/>>(\d+)([^\s])/g, '>> $1 $2');
-                cleanComment = cleanComment.replace(/>>(\d+)$/gm, '>> $1');
-                // Now escape HTML
+                cleanComment = cleanComment.replace(/>>(\d+)([^\s])/g, '>>$1 $2');
                 cleanComment = cleanComment.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const thread = p.thread_id || 'unknown';
                 const pid = p.post_id || '—';

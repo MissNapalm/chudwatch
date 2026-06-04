@@ -80,9 +80,9 @@ def update_trends(conn):
             text = row[0]
             if not text:
                 continue
-            # Strip ALL HTML tags and entities
+            # Strip ALL HTML tags and entities - FIXED REGEX
             cleaned = re.sub(r'<[^>]+>', ' ', text)
-            cleaned = re.sub(r'&[a-z]+;', ' ', cleaned)
+            cleaned = re.sub(r'&[a-zA-Z0-9#]+;', ' ', cleaned)  # Fixed: uppercase + numbers
             cleaned = re.sub(r'https?://\S+', ' ', cleaned)
             
             doc = nlp(cleaned)
@@ -117,7 +117,7 @@ def update_trends(conn):
     for row in rows:
         if row[0]:
             cleaned = re.sub(r'<[^>]+>', ' ', row[0])
-            cleaned = re.sub(r'&[a-z]+;', ' ', cleaned)
+            cleaned = re.sub(r'&[a-zA-Z0-9#]+;', ' ', cleaned)  # Fixed: uppercase + numbers
             words.extend(re.findall(r'\b[A-Z][a-z]{3,}\b', cleaned))
 
     html_garbage = {'class', 'href', 'quotelink', 'span', 'quote', 'quot', 'br', 'div', 'http', 'https'}

@@ -10,7 +10,8 @@ import concurrent.futures
 import csv
 import io
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import statistics
 import sys
 import os
 
@@ -208,6 +209,26 @@ _FIGURE_PATTERNS = {
         re.IGNORECASE
     ))
     for name, (cat, variants) in PUBLIC_FIGURES.items()
+}
+
+
+_GDELT_TOPIC_MAP = {
+    'Jews':         'antisemitism jewish',
+    'Black People': 'racial shooting police',
+    'Immigration':  'immigration migrants border',
+    'Trump':        'trump',
+    'Democrats':    'democrat',
+    'Russia':       'russia putin',
+    'Israel':       'israel',
+    'Palestine':    'palestine gaza',
+    'Germany':      'germany',
+    'White People': 'white nationalism supremacy',
+    'Trans People': 'transgender',
+    'LGBTQ+':       'lgbtq pride',
+    'Muslims':      'islam muslim',
+    'China':        'china',
+    'Ukraine':      'ukraine zelensky',
+    'Globalism':    'soros davos wef',
 }
 
 
@@ -558,6 +579,15 @@ SIGNAL_PATTERNS = [
     (re.compile(pat, re.IGNORECASE), label, tier)
     for pat, label, tier in _RAW_PATTERNS
 ]
+
+_IRONY_PAT = re.compile(
+    r'\b(kek+|lol|lmao|lmfao|kekw|rofl|lulz|topkek|kek\'d|heh+)\b'
+    r'|:\^\)'
+    r'|\b(shitpost(ing)?|b8|baiting?|just trolling|obvious bait)\b'
+    r'|\b(just a joke|only a joke|it\'?s a meme|satire|sarcasm|ironic(ally)?)\b',
+    re.IGNORECASE
+)
+_GREENTEXT_PAT = re.compile(r'^&gt;|^>', re.MULTILINE)
 
 # --- Target group detection --------------------------------------------------
 
@@ -1115,6 +1145,12 @@ def detect_signals(posts):
 
         target_groups = _detect_targets(text)
 
+        irony_hits = _IRONY_PAT.findall(raw or '')
+        gt_lines   = len(_GREENTEXT_PAT.findall(raw or ''))
+        irony_markers = [h[0] or h[1] or h[2] for h in irony_hits if any(h)][:5]
+        if gt_lines >= 3:
+            irony_markers.append(f'{gt_lines} greentext lines')
+
         results.append({
             "post_id":      p['no'],
             "thread_id":    p.get('thread_id'),
@@ -1125,6 +1161,8 @@ def detect_signals(posts):
             "target_groups": target_groups,
             "snippet":      snippet,
             "comment":      text,
+            "irony_score":  min(3, len(irony_markers)),
+            "irony_indicators": irony_markers,
         })
 
     results.sort(key=lambda x: (-x['score'], -x['max_tier']))
@@ -1949,6 +1987,15 @@ def write_longitudinal(harvest_id):
         last_50_rows = valid_rows[-50:]
         last_50_ids = [r[0] for r in last_50_rows]
 
+        # Baseline stats
+        rad_values = [r[6] for r in valid_rows if (r[6] or 0) > 0]
+        rad_mean   = round(statistics.mean(rad_values), 2)    if len(rad_values) >= 2 else None
+        rad_stddev = round(statistics.stdev(rad_values), 2)   if len(rad_values) >= 2 else None
+        rad_cur    = last_50_rows[-1][6] if last_50_rows else None
+        z_score    = round((rad_cur - rad_mean) / rad_stddev, 2) if (rad_mean and rad_stddev and rad_cur) else None
+        baseline   = {'mean': rad_mean, 'stddev': rad_stddev, 'current': rad_cur, 'z_score': z_score,
+                      'n_harvests': len(rad_values)}
+
         labels = []
         for r in last_50_rows:
             ts = r[1]  # started_at
@@ -2010,6 +2057,7 @@ def write_longitudinal(harvest_id):
             "signal_series":       signal_series,
             "radicalization_index": [r[6] or 0 for r in last_50_rows],
             "events":              events,
+            "baseline":            baseline,
         }
         dest = os.path.join(SCRIPT_DIR, 'longitudinal.json')
         tmp  = dest + '.tmp'
@@ -2316,6 +2364,199 @@ def detect_contagion(posts, harvest_id):
     print(f"[+] Contagion: {len(results)} narratives across {total_threads} threads")
 
 
+def fetch_gdelt_events(top_topics, harvest_id):
+    """Auto-fetch relevant news from GDELT and store in events table."""
+    try:
+        terms = []
+        for topic in top_topics[:6]:
+            term = _GDELT_TOPIC_MAP.get(topic, '')
+            if term:
+                terms.append(term.split()[0])
+        if not terms:
+            return
+        query = ' OR '.join(dict.fromkeys(terms))  # deduplicate
+        now   = datetime.utcnow()
+        end   = now.strftime('%Y%m%d%H%M%S')
+        start = (now - timedelta(hours=6)).strftime('%Y%m%d%H%M%S')
+        url   = (f'https://api.gdeltproject.org/api/v2/doc/doc'
+                 f'?query={requests.utils.quote(query)}'
+                 f'&mode=artlist&maxrecords=8&format=json'
+                 f'&startdatetime={start}&enddatetime={end}&sourcelang=english')
+        r = requests.get(url, timeout=8)
+        if not r.ok:
+            return
+        articles = r.json().get('articles', [])
+        conn = sqlite3.connect(DB_FILE)
+        conn.execute('PRAGMA journal_mode=WAL')
+        c = conn.cursor()
+        inserted = 0
+        for art in articles[:5]:
+            title    = (art.get('title') or '').strip()[:200]
+            art_url  = (art.get('url') or '')[:400]
+            seen     = art.get('seendate', '')
+            if not title or not seen:
+                continue
+            try:
+                event_date = f'{seen[:4]}-{seen[4:6]}-{seen[6:8]}'
+            except Exception:
+                continue
+            c.execute('SELECT id FROM events WHERE title=? AND event_date=?', (title, event_date))
+            if c.fetchone():
+                continue
+            c.execute('INSERT INTO events (event_date, title, description, created_at) VALUES (?,?,?,?)',
+                      (event_date, title, f'[GDELT auto] {art_url}', time.time()))
+            inserted += 1
+        conn.commit()
+        conn.close()
+        print(f'[+] GDELT: {inserted} new events from {len(articles)} articles')
+    except Exception as e:
+        print(f'[!] GDELT fetch skipped: {e}')
+
+
+def detect_reply_network(posts):
+    """Parse >>post_id reply references to build a hub post ranking."""
+    QUOTE_PAT = re.compile(r'&gt;&gt;(\d+)|>>(\d+)')
+    post_map = {p['no']: p for p in posts}
+    replies_received = collections.defaultdict(list)
+
+    for p in posts:
+        raw = p.get('com', '') or ''
+        for m in QUOTE_PAT.finditer(raw):
+            target_id = int(m.group(1) or m.group(2))
+            if target_id != p['no']:
+                replies_received[target_id].append(p['no'])
+
+    hub_posts = []
+    for post_id, repliers in sorted(replies_received.items(), key=lambda x: -len(x[1]))[:40]:
+        p = post_map.get(post_id, {})
+        text = clean_text(p.get('com', '') or '')
+        hub_posts.append({
+            'post_id':     post_id,
+            'thread_id':   p.get('thread_id'),
+            'reply_count': len(repliers),
+            'snippet':     text[:150],
+            'name':        p.get('name', 'Anonymous'),
+        })
+
+    poster_replies = collections.defaultdict(int)
+    for post_id, repliers in replies_received.items():
+        p = post_map.get(post_id, {})
+        pid = p.get('id', '')
+        if pid and pid not in ('000000', 'Developer', 'Mod'):
+            poster_replies[pid] += len(repliers)
+
+    influential = [
+        {'poster_id': pid, 'total_replies': count}
+        for pid, count in sorted(poster_replies.items(), key=lambda x: -x[1])[:20]
+        if count >= 3
+    ]
+
+    out = {
+        'updated':             utcnow(),
+        'total_reply_edges':   sum(len(r) for r in replies_received.values()),
+        'hub_posts':           hub_posts,
+        'influential_posters': influential,
+    }
+    dest = os.path.join(SCRIPT_DIR, 'network.json')
+    with open(dest + '.tmp', 'w') as f: json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Network: {out['total_reply_edges']} reply edges, {len(hub_posts)} hub posts")
+
+
+def detect_named_targets(posts, signal_results):
+    """Find public figures mentioned in T3/T4 signal posts."""
+    high_tier = {s['post_id']: s for s in signal_results if s.get('max_tier', 0) >= 3}
+    target_counts   = collections.Counter()
+    target_tiers    = collections.defaultdict(lambda: {3: 0, 4: 0})
+    target_contexts = collections.defaultdict(list)
+
+    for p in posts:
+        if p['no'] not in high_tier:
+            continue
+        text = clean_text(p.get('com', '') or '')
+        if not text:
+            continue
+        sig  = high_tier[p['no']]
+        tier = sig.get('max_tier', 0)
+        for name, (cat, pattern) in _FIGURE_PATTERNS.items():
+            if pattern.search(text):
+                target_counts[name] += 1
+                target_tiers[name][tier] = target_tiers[name].get(tier, 0) + 1
+                if len(target_contexts[name]) < 4:
+                    target_contexts[name].append({
+                        'post_id':    p['no'],
+                        'thread_id':  p.get('thread_id'),
+                        'tier':       tier,
+                        'categories': sig.get('categories', []),
+                        'snippet':    text[:180],
+                    })
+
+    results = sorted(
+        [{'name': n, 'category': PUBLIC_FIGURES[n][0],
+          'threat_post_count': c,
+          'tier_breakdown': target_tiers[n],
+          'contexts': target_contexts[n]}
+         for n, c in target_counts.items()],
+        key=lambda x: -(x['tier_breakdown'].get(4,0)*2 + x['tier_breakdown'].get(3,0))
+    )
+    out = {'updated': utcnow(), 'targets': results}
+    dest = os.path.join(SCRIPT_DIR, 'named_targets.json')
+    with open(dest + '.tmp', 'w') as f: json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Named targets: {len(results)} figures in T3/T4 posts")
+
+
+def detect_novelty(posts, harvest_id):
+    """Compare current harvest topic rates to historical baseline. Flag NEW/SURGING/FADING."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute('PRAGMA journal_mode=WAL')
+    c = conn.cursor()
+    placeholders = ','.join('?' * len(_VALID_TREND_LABELS))
+    c.execute(f'''SELECT ht.topic, AVG(ht.count) as avg_c, COUNT(*) as appearances
+                  FROM harvest_topics ht JOIN harvests h ON ht.harvest_id=h.id
+                  WHERE ht.harvest_id < ? AND h.post_count >= 1000
+                    AND ht.topic IN ({placeholders})
+                  GROUP BY ht.topic''',
+              [harvest_id] + list(_VALID_TREND_LABELS))
+    historical = {row[0]: {'avg': row[1], 'n': row[2]} for row in c.fetchall()}
+    c.execute('SELECT COUNT(*) FROM harvests WHERE id < ? AND post_count >= 1000', (harvest_id,))
+    prior_count = c.fetchone()[0]
+    conn.close()
+
+    total = max(sum(1 for p in posts if p.get('com')), 1)
+    current = {}
+    for topic, pattern in _GROUP_PATTERNS.items():
+        count = sum(1 for p in posts if p.get('com') and pattern.search(p['com'].lower()))
+        if count > 0:
+            current[topic] = count
+
+    flags = []
+    for topic, count in current.items():
+        hist = historical.get(topic, {})
+        avg  = hist.get('avg', 0) or 0
+        n    = hist.get('n', 0) or 0
+        if prior_count >= 3 and (n == 0 or n < prior_count * 0.2):
+            flag = 'NEW'; change = None
+        elif avg > 0 and count / avg > 2.5:
+            flag = 'SURGING'; change = round((count - avg) / avg * 100)
+        elif avg > 0 and count / avg < 0.4:
+            flag = 'FADING'; change = round((count - avg) / avg * 100)
+        else:
+            flag = None; change = None
+        flags.append({'topic': topic, 'flag': flag, 'current': count,
+                      'historical_avg': round(avg, 1), 'change_pct': change})
+
+    flagged = [f for f in flags if f['flag']]
+    out = {'updated': utcnow(), 'prior_harvests': prior_count,
+           'flagged': sorted(flagged, key=lambda x: ['SURGING','NEW','FADING'].index(x['flag'])),
+           'all': flags}
+    dest = os.path.join(SCRIPT_DIR, 'novelty.json')
+    with open(dest + '.tmp', 'w') as f: json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Novelty: {len(flagged)} flagged ({sum(1 for f in flagged if f['flag']=='NEW')} new, "
+          f"{sum(1 for f in flagged if f['flag']=='SURGING')} surging)")
+
+
 def save_and_analyze(posts):
     conn = sqlite3.connect(DB_FILE)
     conn.execute('PRAGMA journal_mode=WAL')
@@ -2405,6 +2646,11 @@ def save_and_analyze(posts):
         for f in concurrent.futures.as_completed(futs):
             f.result()
 
+    detect_reply_network(posts)
+    detect_named_targets(posts, signal_results_raw or [])
+    detect_novelty(posts, _current_harvest_id)
+    fetch_gdelt_events([t for t, _ in _count_topics([p.get('com','') or '' for p in posts if p.get('com')])[:6]], _current_harvest_id)
+
     # Write ALL posts from the current batch (include flag fields for the viewer)
     all_posts = [
         {
@@ -2484,7 +2730,7 @@ _GENERATED_FILES = (
     'trans.json', 'flags.json', 'timeheat.json', 'tripcodes.json', 'cooccur.json',
     'arcs.json', 'narratives.json', 'longitudinal.json',
     'pipeline.json', 'poster_arcs.json', 'contagion.json',
-    'public_figures.json',
+    'public_figures.json', 'network.json', 'named_targets.json', 'novelty.json',
 )
 
 def _clear_generated_files():

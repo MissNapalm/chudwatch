@@ -105,7 +105,7 @@ TOPIC_GROUPS = {
     'Women':          ['woman', 'women', 'female', 'females', 'foid', 'foids', 'roastie', 'roasties',
                        'feminist', 'feminists', 'feminism', 'femoid', 'femoids'],
     'LGBTQ+':         ['gay', 'gays', 'lesbian', 'lesbians', 'homosexual', 'homosexuals', 'queer', 'queers',
-                       'faggot', 'faggots', 'fag', 'fags', 'sodomite', 'sodomites'],
+                       'sodomite', 'sodomites', 'lgbtq', 'lgbt', 'pride parade', 'drag queen', 'drag queens'],
     'Muslims':        ['muslim', 'muslims', 'islam', 'islamic', 'islamist', 'islamists', 'mosque',
                        'quran', 'sharia', 'jihad', 'jihadist', 'jihadists'],
     'America':        ['america', 'american', 'americans', 'usa', 'u.s.', 'merican', 'united states'],
@@ -902,7 +902,8 @@ def detect_astroturf(posts):
 
     injected_phrases = sorted(
         [{"phrase": ph, "thread_count": len(ts),
-          "live_count": phrase_live[ph], "samples": phrase_examples[ph]}
+          "live_count": phrase_live[ph], "samples": phrase_examples[ph],
+          "thread_ids": sorted(ts)[:30]}
          for ph, ts in phrase_threads.items() if len(ts) >= 5],
         key=lambda x: (-x['thread_count'], -x['live_count'])
     )[:20]
@@ -1133,7 +1134,45 @@ def detect_signals(posts):
     results.sort(key=lambda x: (_verdict_rank.get(x.get('ai_verdict')), -x['score'], -x['max_tier']))
 
     now = utcnow()
-    out = {"updated": now, "count": len(results), "signals": results[:200]}
+    by_tier = {t: sum(1 for r in results if r['max_tier'] == t) for t in [1,2,3,4]}
+
+    # Aggregate across ALL signals (not just top 200)
+    cat_counts = collections.Counter()
+    trigger_counts = collections.Counter()
+    target_tier = collections.defaultdict(lambda: {2:0,3:0,4:0})
+    thread_scores = collections.defaultdict(lambda: {'score':0,'count':0,'max_tier':0})
+    for r in results:
+        for cat in r.get('categories', []):
+            cat_counts[cat] += 1
+        for trg in r.get('triggers', []):
+            trigger_counts[trg] += 1
+        tier = r.get('max_tier', 0)
+        for grp in r.get('target_groups', []):
+            if tier >= 2:
+                target_tier[grp][tier] = target_tier[grp].get(tier, 0) + 1
+        tid = r.get('thread_id')
+        if tid:
+            thread_scores[tid]['score']    += r.get('score', 0)
+            thread_scores[tid]['count']    += 1
+            thread_scores[tid]['max_tier'] = max(thread_scores[tid]['max_tier'], tier)
+
+    hot_threads = sorted(
+        [{'thread_id': tid, 'signal_count': v['count'],
+          'total_score': round(v['score'],1), 'max_tier': v['max_tier']}
+         for tid, v in thread_scores.items()],
+        key=lambda x: -x['total_score']
+    )[:30]
+
+    out = {
+        "updated":         now,
+        "count":           len(results),
+        "by_tier":         by_tier,
+        "category_counts": cat_counts.most_common(30),
+        "trigger_counts":  trigger_counts.most_common(40),
+        "target_tier":     {g: v for g, v in target_tier.items()},
+        "hot_threads":     hot_threads,
+        "signals":         results[:200],
+    }
     dest = os.path.join(SCRIPT_DIR, 'signals.json')
     tmp  = dest + '.tmp'
     with open(tmp, 'w') as f:
@@ -1902,9 +1941,13 @@ def write_longitudinal(harvest_id):
             os.replace(tmp, dest)
             return
 
-        harvest_ids = [r[0] for r in rows]
-        last_50_ids = harvest_ids[-50:]
-        last_50_rows = [r for r in rows if r[0] in set(last_50_ids)]
+        # Only include harvests with real data — skip error/zero-post states
+        valid_rows = [r for r in rows if (r[3] or 0) >= 1000]
+        if not valid_rows:
+            valid_rows = rows  # fallback: show everything if all are small
+
+        last_50_rows = valid_rows[-50:]
+        last_50_ids = [r[0] for r in last_50_rows]
 
         labels = []
         for r in last_50_rows:
@@ -1921,6 +1964,8 @@ def write_longitudinal(harvest_id):
         topic_totals = collections.Counter()
         topic_by_harvest = collections.defaultdict(dict)
         for hid, topic, count in topic_rows:
+            if topic not in _VALID_TREND_LABELS:
+                continue  # skip old NLP garbage names
             topic_totals[topic] += count
             topic_by_harvest[hid][topic] = count
 

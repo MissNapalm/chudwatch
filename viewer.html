@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>ChudWatch | Political Sentiment Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #f0eade; color: #800000; margin: 20px; }
+        body { font-family: Arial, sans-serif; background: #f0eade; color: #800000; margin: 20px; transition: background 0.25s, color 0.25s; }
         .container { max-width: 1060px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
         h1 { color: #0f0c5d; text-align: center; margin-bottom: 5px; }
         .subtitle { text-align:center; font-style:italic; color:#800000; font-size:13px; margin:-6px 0 10px; opacity:0.7; }
@@ -41,9 +44,125 @@
         .progress-pct { color:#0f0c5d; font-weight:bold; font-size:13px; margin-top:2px; }
         .progress-text { color:#555; font-size:13px; margin-top:6px; min-height:18px; }
 
-        /* Refresh button */
+        /* Buttons */
         .refresh-btn { position:fixed; top:14px; right:20px; background:linear-gradient(135deg,#c46060,#7b0000); color:rgba(255,255,255,0.9); border:none; padding:6px 13px; border-radius:4px; cursor:pointer; font-size:12px; z-index:100; opacity:0.82; }
         .refresh-btn:hover { opacity:1; }
+        .theme-toggle { position:fixed; top:14px; right:130px; background:#1a1a3a; color:rgba(255,255,255,0.8); border:none; padding:6px 13px; border-radius:4px; cursor:pointer; font-size:12px; z-index:100; opacity:0.75; letter-spacing:.3px; }
+        .theme-toggle:hover { opacity:1; }
+
+        /* ══════════════════════════════════════════════════
+           PRO / MERIDIAN THEME
+           Applied when <body class="theme-pro"> is set.
+           ══════════════════════════════════════════════════ */
+        body.theme-pro {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        body.theme-pro .container {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,.06), 0 2px 4px -2px rgba(0,0,0,.04);
+            padding: 28px 28px 24px;
+        }
+        body.theme-pro h1 { color: #0f172a; }
+        body.theme-pro .subtitle { color: #64748b; font-style: normal; font-weight: 500; opacity:1; }
+        body.theme-pro .status-bar { color: #64748b; }
+        body.theme-pro .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+        body.theme-pro input {
+            border-color: #cbd5e1;
+            border-radius: 8px;
+            color: #0f172a;
+            background: #fff;
+            font-family: inherit;
+        }
+        body.theme-pro input::placeholder { color: #94a3b8; }
+        body.theme-pro button:not(.refresh-btn):not(.theme-toggle) {
+            background: #2563eb;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: 600;
+            letter-spacing: .2px;
+        }
+        body.theme-pro button:not(.refresh-btn):not(.theme-toggle):hover { background: #1d4ed8; }
+        body.theme-pro .tabs { border-bottom-color: #e2e8f0; }
+        body.theme-pro .tab-btn {
+            background: transparent;
+            color: #64748b;
+            font-family: inherit;
+            font-weight: 500;
+        }
+        body.theme-pro .tab-btn:hover { background: #f1f5f9; color: #334155; }
+        body.theme-pro .tab-btn.active { background: #fff; color: #2563eb; border-bottom-color: #2563eb; }
+        body.theme-pro .tab-btn.danger { color: #be123c; }
+        body.theme-pro .tab-btn.danger.active { border-bottom-color: #be123c; }
+        body.theme-pro .trend-chip { background: #dbeafe; color: #1e40af; border-radius: 20px; font-weight: 500; }
+        body.theme-pro .post-card { background: #fff; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+        body.theme-pro .post-card b { color: #059669; }
+        body.theme-pro .count-bar { background: #f8fafc; border-color: #e2e8f0; color: #334155; }
+        body.theme-pro .muted { color: #94a3b8; }
+        body.theme-pro .loading-content { border-radius: 20px; font-family: inherit; }
+        body.theme-pro .loading-content h2 { color: #2563eb; }
+        body.theme-pro .spinner { border-color: #dbeafe; border-top-color: #2563eb; }
+        body.theme-pro .progress-bar-wrap { background: #f1f5f9; border-color: #e2e8f0; border-radius: 99px; }
+        body.theme-pro .progress-bar-fill { background: linear-gradient(90deg, #3b82f6, #2563eb); border-radius: 99px; }
+        body.theme-pro .progress-pct { color: #2563eb; }
+        /* Signal cards */
+        body.theme-pro .signal-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+        body.theme-pro .signal-card.t4 { border-left-color: #7f1d1d; background: #fff1f2; }
+        body.theme-pro .signal-card.t3 { border-left-color: #b91c1c; background: #fef2f2; }
+        body.theme-pro .signal-card.t2 { border-left-color: #c2410c; background: #fff7ed; }
+        body.theme-pro .signal-card.t1 { border-left-color: #b45309; background: #fffbeb; }
+        body.theme-pro .trigger-tag { background: #fee2e2; color: #991b1b; border-radius: 4px; }
+        body.theme-pro .cat-tag { background: #dbeafe; color: #1e40af; border-radius: 4px; }
+        body.theme-pro .signal-highlight { background: #fde68a; }
+        body.theme-pro .sig-stat { background: #fff; border-color: #e2e8f0; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+        /* Thread cards */
+        body.theme-pro .thread-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
+        body.theme-pro .thread-card .thread-subject { color: #2563eb; }
+        body.theme-pro .thread-card .thread-meta { color: #94a3b8; }
+        body.theme-pro .thread-card .thread-preview { color: #334155; }
+        /* Memes */
+        body.theme-pro .meme-card { background: #fff; border-color: #e2e8f0; border-radius: 10px; }
+        /* Astroturf */
+        body.theme-pro .astro-ai-box { background: #eff6ff; border-color: #93c5fd; }
+        body.theme-pro .astro-card { background: #fff; border-color: #e2e8f0; border-radius: 8px; }
+        body.theme-pro .astro-section h3 { color: #1e40af; }
+        /* Trans */
+        body.theme-pro .trans-stat { background: #fff; border-color: #e2e8f0; border-radius: 10px; }
+        body.theme-pro .trans-ai-box { background: #fff7ed; border-color: #fed7aa; }
+        body.theme-pro .trans-card { background: #fff; }
+        /* Patterns */
+        body.theme-pro .pat-section h3 { color: #1e40af; }
+        body.theme-pro .jargon-bar-wrap { background: #e2e8f0; }
+        body.theme-pro .heat-label span { color: #94a3b8; }
+        body.theme-pro .cooccur-table th { background: #f8fafc; border-color: #e2e8f0; color: #475569; }
+        body.theme-pro .cooccur-table td { border-color: #f1f5f9; }
+        body.theme-pro .cooccur-table tr:hover td { background: #f8fafc; }
+        body.theme-pro .trip-card { background: #fff; border-color: #e2e8f0; border-radius: 8px; }
+        body.theme-pro .trip-identity { color: #2563eb; }
+        body.theme-pro .trip-topic-tag { background: #f1f5f9; color: #475569; }
+        /* Flags */
+        body.theme-pro .flags-section h3 { color: #1e40af; }
+        body.theme-pro .flag-bar-wrap { background: #e2e8f0; }
+        body.theme-pro .flag-bar-fill { background: #2563eb; }
+        body.theme-pro .flag-bar-fill.troll { background: #dc2626; }
+        body.theme-pro .flag-name { color: #334155; }
+        /* Pulse */
+        body.theme-pro .pulse-card { background: #f0f9ff; border-color: #bae6fd; color: #0c4a6e; }
+        body.theme-pro .pulse-card .pulse-label { color: #64748b; }
+        /* AI badges */
+        body.theme-pro .ai-confirmed { background: #16a34a; }
+        body.theme-pro .ai-ambiguous { background: #d97706; }
+        body.theme-pro .ai-fp { background: #94a3b8; }
+        /* Refresh / toggle */
+        body.theme-pro .refresh-btn { background: #dc2626; }
+        body.theme-pro .theme-toggle { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; opacity:1; }
 
         /* Signals tab */
         .signal-card { border-left:4px solid #ccc; padding:10px 14px; margin-bottom:8px; background:#fff9f9; font-size:13px; }
@@ -191,10 +310,11 @@
 </head>
 <body>
     <button class="refresh-btn" onclick="refreshAll()">↺ Refresh All</button>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">◑ Meridian View</button>
 
     <div id="loading">
         <div class="loading-content">
-            <h2>ChudWatch</h2>
+            <h2 id="loadingTitle">ChudWatch</h2>
             <div class="spinner"></div>
             <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
             <div class="progress-pct" id="progressPct">0%</div>
@@ -204,8 +324,16 @@
     </div>
 
     <div class="container">
-        <h1><img src="chud.png" alt="" style="height:90px;vertical-align:middle;margin-right:20px;"><img src="logo.png" alt="" style="height:50px;vertical-align:middle;margin-right:10px;">ChudWatch<img src="logo.png" alt="" style="height:50px;vertical-align:middle;margin-left:10px;"><img src="chud.png" alt="" style="height:90px;vertical-align:middle;margin-left:20px;"></h1>
-        <p class="subtitle">B-but you can't just study us!</p>
+        <!-- Dark-mode header -->
+        <div id="header-dark">
+            <h1><img src="chud.png" alt="" style="height:90px;vertical-align:middle;margin-right:20px;"><img src="logo.png" alt="" style="height:50px;vertical-align:middle;margin-right:10px;">ChudWatch<img src="logo.png" alt="" style="height:50px;vertical-align:middle;margin-left:10px;"><img src="chud.png" alt="" style="height:90px;vertical-align:middle;margin-left:20px;"></h1>
+            <p class="subtitle">B-but you can't just study us!</p>
+        </div>
+        <!-- Pro / Meridian header (hidden by default) -->
+        <div id="header-pro" style="display:none;text-align:center;padding:20px 0 6px">
+            <div style="font-family:'Inter',sans-serif;font-size:32px;font-weight:700;color:#0f172a;letter-spacing:-1px;line-height:1">Meridian</div>
+            <div style="font-family:'Inter',sans-serif;font-size:13px;color:#64748b;margin-top:6px;font-weight:500;letter-spacing:.5px;text-transform:uppercase">Extremism Intelligence Platform &nbsp;·&nbsp; /pol/ Research Dashboard</div>
+        </div>
         <div class="status-bar" id="statusBar">Connecting to data...</div>
 
         <div class="card">
@@ -276,6 +404,36 @@
 
         const stripHTML = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent || ''; };
         const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+        // ── Theme toggle ──────────────────────────────────────────────────────
+        function applyTheme(pro) {
+            const btn = document.getElementById('themeToggle');
+            const darkHdr = document.getElementById('header-dark');
+            const proHdr  = document.getElementById('header-pro');
+            const loadTitle = document.getElementById('loadingTitle');
+            if (pro) {
+                document.body.classList.add('theme-pro');
+                document.title = 'Meridian | Extremism Intelligence Platform';
+                if (btn)      { btn.textContent = '◑ ChudWatch'; }
+                if (darkHdr)  darkHdr.style.display = 'none';
+                if (proHdr)   proHdr.style.display  = '';
+                if (loadTitle) loadTitle.textContent = 'Meridian';
+            } else {
+                document.body.classList.remove('theme-pro');
+                document.title = 'ChudWatch | Political Sentiment Monitor';
+                if (btn)      { btn.textContent = '◑ Meridian View'; }
+                if (darkHdr)  darkHdr.style.display = '';
+                if (proHdr)   proHdr.style.display  = 'none';
+                if (loadTitle) loadTitle.textContent = 'ChudWatch';
+            }
+        }
+        function toggleTheme() {
+            const pro = !document.body.classList.contains('theme-pro');
+            localStorage.setItem('chudwatch_theme', pro ? 'pro' : 'dark');
+            applyTheme(pro);
+        }
+        // Apply saved theme on load
+        applyTheme(localStorage.getItem('chudwatch_theme') === 'pro');
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));

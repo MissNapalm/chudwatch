@@ -2646,10 +2646,17 @@ def save_and_analyze(posts):
         for f in concurrent.futures.as_completed(futs):
             f.result()
 
-    detect_reply_network(posts)
-    detect_named_targets(posts, signal_results_raw or [])
-    detect_novelty(posts, _current_harvest_id)
-    fetch_gdelt_events([t for t, _ in _count_topics([p.get('com','') or '' for p in posts if p.get('com')])[:6]], _current_harvest_id)
+    _top_topics = [t for t, _ in _count_topics([p.get('com','') or '' for p in posts if p.get('com')])[:6]]
+    wave3 = [
+        lambda: detect_reply_network(posts),
+        lambda: detect_named_targets(posts, signal_results_raw or []),
+        lambda: detect_novelty(posts, _current_harvest_id),
+        lambda: fetch_gdelt_events(_top_topics, _current_harvest_id),
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(wave3)) as ex:
+        futs = [ex.submit(fn) for fn in wave3]
+        for f in concurrent.futures.as_completed(futs):
+            f.result()
 
     # Write ALL posts from the current batch (include flag fields for the viewer)
     all_posts = [

@@ -5,40 +5,102 @@
     <title>ChudWatch | Political Sentiment Monitor</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+        * { box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #f0eade; color: #800000; margin: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
+        .container { max-width: 1060px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
         h1 { color: #0f0c5d; text-align: center; margin-bottom: 5px; }
-        .status-bar { text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; }
-        .tabs { display: flex; gap: 0; margin-bottom: 20px; }
-        .tab-btn { background: #d3b49f; border: none; padding: 15px 30px; cursor: pointer; font-weight: bold; font-size: 16px; color: #333; transition: all 0.3s; }
-        .tab-btn:hover { background: #c9a382; }
-        .tab-btn.active { background: #0f0c5d; color: #fff; }
-        .card { background: #f7f3e9; border: 1px solid #d3b49f; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
-        .search-area { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 10px; border: 1px solid #d3b49f; border-radius: 4px; font-size: 16px; }
+        .subtitle { text-align:center; font-style:italic; color:#800000; font-size:13px; margin:-6px 0 10px; opacity:0.7; }
+        .status-bar { text-align: center; font-size: 12px; color: #555; margin-bottom: 16px; }
+        .card { background: #f7f3e9; border: 1px solid #d3b49f; padding: 12px 15px; margin-bottom: 16px; border-radius: 4px; }
+        .search-area { display: flex; gap: 10px; margin-bottom: 16px; }
+        input { flex: 1; padding: 10px; border: 1px solid #d3b49f; border-radius: 4px; font-size: 15px; }
         button { background: #0f0c5d; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .trend-chip { background: #d3b49f; padding: 6px 10px; margin: 3px; border-radius: 16px; cursor: pointer; display: inline-block; font-size: 12px; color: #000; }
-        .post-card { background: #f7f3e9; border-bottom: 1px dashed #d3b49f; padding: 12px; margin-bottom: 6px; color: #000; font-size: 14px; }
-        .post-card b { color: #117743; }
-        .alert { color: red; font-weight: bold; }
-        .muted { color: #666; font-size: 12px; }
-        .count-bar { background: #f7f3e9; padding: 10px; margin-bottom: 15px; border: 1px solid #d3b49f; font-weight: bold; }
-        #loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; }
-        .loading-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 40px 50px; border-radius: 10px; text-align: center; min-width: 380px; }
-        .loading-content h2 { color: #0f0c5d; margin-bottom: 20px; }
-        .spinner { border: 4px solid #d3b49f; border-top: 4px solid #0f0c5d; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .progress-bar-wrap { background: #f0eade; border: 1px solid #d3b49f; border-radius: 8px; height: 18px; margin: 14px 0 8px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #800000, #0f0c5d); border-radius: 8px; transition: width 0.4s ease; width: 0%; }
-        .progress-text { color: #555; font-size: 13px; margin-top: 6px; min-height: 18px; }
-        .progress-pct { color: #0f0c5d; font-weight: bold; font-size: 13px; margin-top: 2px; }
-        .refresh-btn { position: fixed; top: 14px; right: 20px; background: linear-gradient(135deg, #c46060, #7b0000); color: rgba(255,255,255,0.9); border: none; padding: 6px 13px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: normal; letter-spacing: 0.3px; z-index: 100; opacity: 0.82; }
-        .refresh-btn:hover { opacity: 1; }
+        .tabs { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 20px; border-bottom: 3px solid #d3b49f; }
+        .tab-btn { background: #f7f3e9; border: none; border-bottom: 3px solid transparent; margin-bottom: -3px; padding: 10px 18px; cursor: pointer; font-weight: bold; font-size: 13px; color: #555; transition: all 0.2s; }
+        .tab-btn:hover { background: #ede8dc; color: #333; }
+        .tab-btn.active { background: #fff; color: #0f0c5d; border-bottom-color: #0f0c5d; }
+        .tab-btn.danger { color: #800000; }
+        .tab-btn.danger.active { border-bottom-color: #800000; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        #bubbles svg { display: block; margin: 0 auto; }
-        #bubbles .bubble-label { pointer-events: none; fill: #fff; font-family: Arial, sans-serif; font-weight: bold; text-anchor: middle; }
-        #bubbles .bubble-count { pointer-events: none; fill: rgba(255,255,255,0.82); font-family: Arial, sans-serif; text-anchor: middle; }
+        .trend-chip { background: #d3b49f; padding: 5px 9px; margin: 2px; border-radius: 14px; cursor: pointer; display: inline-block; font-size: 12px; color: #000; }
+        .post-card { background: #f7f3e9; border-bottom: 1px dashed #d3b49f; padding: 10px 12px; margin-bottom: 4px; color: #000; font-size: 13px; }
+        .post-card b { color: #117743; }
+        .count-bar { background: #f7f3e9; padding: 8px 12px; margin-bottom: 12px; border: 1px solid #d3b49f; font-weight: bold; font-size: 13px; }
+        .muted { color: #888; font-size: 12px; padding: 20px; }
+
+        /* Loading overlay */
+        #loading { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.75); z-index:9999; }
+        .loading-content { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:40px 50px; border-radius:10px; text-align:center; min-width:380px; }
+        .loading-content h2 { color:#0f0c5d; margin-bottom:20px; }
+        .spinner { border:4px solid #d3b49f; border-top:4px solid #0f0c5d; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto 20px; }
+        @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        .progress-bar-wrap { background:#f0eade; border:1px solid #d3b49f; border-radius:8px; height:18px; margin:14px 0 8px; overflow:hidden; }
+        .progress-bar-fill { height:100%; background:linear-gradient(90deg,#800000,#0f0c5d); border-radius:8px; transition:width 0.4s ease; width:0%; }
+        .progress-pct { color:#0f0c5d; font-weight:bold; font-size:13px; margin-top:2px; }
+        .progress-text { color:#555; font-size:13px; margin-top:6px; min-height:18px; }
+
+        /* Refresh button */
+        .refresh-btn { position:fixed; top:14px; right:20px; background:linear-gradient(135deg,#c46060,#7b0000); color:rgba(255,255,255,0.9); border:none; padding:6px 13px; border-radius:4px; cursor:pointer; font-size:12px; z-index:100; opacity:0.82; }
+        .refresh-btn:hover { opacity:1; }
+
+        /* Signals tab */
+        .signal-card { border-left:4px solid #ccc; padding:10px 14px; margin-bottom:8px; background:#fff9f9; font-size:13px; }
+        .signal-card.t3 { border-left-color:#8b0000; background:#fff0f0; }
+        .signal-card.t2 { border-left-color:#cc4400; background:#fff5ee; }
+        .signal-card.t1 { border-left-color:#cc8800; background:#fffaee; }
+        .signal-tier { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px; }
+        .t3-badge { background:#8b0000; color:#fff; }
+        .t2-badge { background:#cc4400; color:#fff; }
+        .t1-badge { background:#cc8800; color:#fff; }
+        .trigger-tag { background:#ffe0e0; color:#8b0000; font-size:11px; padding:2px 6px; border-radius:3px; margin-right:4px; font-family:monospace; }
+        .cat-tag { background:#e8e8ff; color:#0f0c5d; font-size:11px; padding:2px 6px; border-radius:3px; margin-right:4px; }
+        .signal-highlight { background:#ffdddd; font-weight:bold; }
+        .signal-count-row { display:flex; gap:16px; margin-bottom:16px; }
+        .sig-stat { background:#f7f3e9; border:1px solid #d3b49f; padding:12px 20px; border-radius:4px; text-align:center; flex:1; }
+        .sig-stat .num { font-size:28px; font-weight:bold; }
+        .sig-stat.t3-stat .num { color:#8b0000; }
+        .sig-stat.t2-stat .num { color:#cc4400; }
+        .sig-stat.t1-stat .num { color:#cc8800; }
+
+        /* Jargon tab */
+        .jargon-tier { margin-bottom:24px; }
+        .jargon-tier-header { display:flex; align-items:baseline; gap:12px; margin-bottom:10px; }
+        .jargon-tier-header h3 { margin:0; }
+        .jargon-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:13px; }
+        .jargon-bar-wrap { flex:1; background:#f0eade; border-radius:4px; height:14px; overflow:hidden; }
+        .jargon-bar-fill { height:100%; border-radius:4px; }
+        .jargon-count { width:40px; text-align:right; color:#555; font-size:12px; }
+        .jargon-label { width:180px; }
+        .tier1-fill { background:#c88000; }
+        .tier2-fill { background:#cc4400; }
+        .tier3-fill { background:#8b0000; }
+        .jargon-pct-label { font-size:22px; font-weight:bold; margin-right:6px; }
+        .jargon-desc { font-size:12px; color:#777; margin-bottom:8px; }
+
+        /* Conspiracy map */
+        #conspiracy-svg { display:block; margin:0 auto; }
+        .conspiracy-legend { display:flex; gap:20px; justify-content:center; margin-bottom:16px; font-size:13px; }
+        .legend-dot { display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+
+        /* Thread summaries */
+        .thread-card { background:#f7f3e9; border:1px solid #d3b49f; padding:12px; margin-bottom:8px; border-radius:4px; font-size:13px; }
+        .thread-card .thread-subject { font-weight:bold; color:#0f0c5d; font-size:14px; margin-bottom:4px; }
+        .thread-card .thread-meta { color:#888; font-size:11px; margin-bottom:6px; }
+        .thread-card .thread-preview { color:#333; line-height:1.4; white-space:pre-wrap; word-break:break-word; }
+
+        /* Memes tab */
+        .memes-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:12px; }
+        .meme-card { background:#f7f3e9; border:1px solid #d3b49f; border-radius:4px; overflow:hidden; text-align:center; font-size:12px; }
+        .meme-card img { width:100%; height:130px; object-fit:contain; background:#eee; display:block; cursor:pointer; }
+        .meme-card .meme-info { padding:6px; }
+        .meme-count { font-weight:bold; color:#8b0000; font-size:14px; }
+        .meme-threads { color:#888; font-size:11px; }
+
+        /* Bubbles */
+        #bubbles svg { display:block; margin:0 auto; }
+        #bubbles .bubble-label { pointer-events:none; fill:#fff; font-family:Arial,sans-serif; font-weight:bold; text-anchor:middle; }
+        #bubbles .bubble-count { pointer-events:none; fill:rgba(255,255,255,0.82); font-family:Arial,sans-serif; text-anchor:middle; }
     </style>
 </head>
 <body>
@@ -55,281 +117,348 @@
     </div>
 
     <div class="container">
-        <h1><img src="chud.png" alt="" style="height: 90px; vertical-align: middle; margin-right: 20px;"><img src="logo.png" alt="" style="height: 50px; vertical-align: middle; margin-right: 10px;">ChudWatch<img src="logo.png" alt="" style="height: 50px; vertical-align: middle; margin-left: 10px;"><img src="chud.png" alt="" style="height: 90px; vertical-align: middle; margin-left: 20px;"></h1>
-        <p style="text-align:center; font-style:italic; color:#800000; font-size:13px; margin:-6px 0 10px; opacity:0.7;">B-but you can't just study us!</p>
+        <h1><img src="chud.png" alt="" style="height:90px;vertical-align:middle;margin-right:20px;"><img src="logo.png" alt="" style="height:50px;vertical-align:middle;margin-right:10px;">ChudWatch<img src="logo.png" alt="" style="height:50px;vertical-align:middle;margin-left:10px;"><img src="chud.png" alt="" style="height:90px;vertical-align:middle;margin-left:20px;"></h1>
+        <p class="subtitle">B-but you can't just study us!</p>
         <div class="status-bar" id="statusBar">Connecting to data...</div>
-        
+
         <div class="card">
             <strong>Trending:</strong> <span id="trends"></span>
         </div>
         <div class="search-area">
-            <input type="text" id="search" placeholder="Enter keyword to search..." onkeydown="if(event.key==='Enter') render()">
+            <input type="text" id="search" placeholder="Search posts..." onkeydown="if(event.key==='Enter') render()">
             <button onclick="render()">Search</button>
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" data-tab="posts" onclick="switchTab('posts')">Posts</button>
-            <button class="tab-btn" data-tab="threads" onclick="switchTab('threads')">Threads (OPs)</button>
-            <button class="tab-btn" data-tab="bubbles" onclick="switchTab('bubbles')">Bubble Chart</button>
+            <button class="tab-btn active"  data-tab="posts"       onclick="switchTab('posts')">Posts</button>
+            <button class="tab-btn"         data-tab="threads"     onclick="switchTab('threads')">Threads</button>
+            <button class="tab-btn"         data-tab="bubbles"     onclick="switchTab('bubbles')">Bubbles</button>
+            <button class="tab-btn"         data-tab="memes"       onclick="switchTab('memes')">Top Memes</button>
+            <button class="tab-btn danger"  data-tab="signals"     onclick="switchTab('signals')">⚠ Signals</button>
+            <button class="tab-btn danger"  data-tab="jargon"      onclick="switchTab('jargon')">Jargon Pipeline</button>
+            <button class="tab-btn danger"  data-tab="conspiracy"  onclick="switchTab('conspiracy')">Conspiracy Map</button>
         </div>
 
-        <div id="posts" class="tab-content active"></div>
-        <div id="threads" class="tab-content"></div>
-        <div id="bubbles" class="tab-content"></div>
+        <div id="posts"      class="tab-content active"></div>
+        <div id="threads"    class="tab-content"></div>
+        <div id="bubbles"    class="tab-content"></div>
+        <div id="memes"      class="tab-content"></div>
+        <div id="signals"    class="tab-content"></div>
+        <div id="jargon"     class="tab-content"></div>
+        <div id="conspiracy" class="tab-content"></div>
     </div>
 
     <script>
-        let POSTS = [];
-        let TRENDS = [];
+        let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [];
 
-        function stripHTML(html) {
-            const tmp = document.createElement('DIV');
-            tmp.innerHTML = html;
-            return tmp.textContent || tmp.innerText || '';
-        }
+        const stripHTML = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent || ''; };
+        const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tab).classList.add('active');
             document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-            if (tab === 'bubbles') renderBubbles();
-            else render();
+            const renderers = { posts: render, threads: renderThreads, bubbles: renderBubbles,
+                                memes: renderMemes, signals: renderSignals,
+                                jargon: renderJargon, conspiracy: renderConspiracy };
+            (renderers[tab] || render)();
         }
 
+        // ── Load ─────────────────────────────────────────────────────────────
         async function load() {
             try {
                 const t = Date.now();
-                const [pRes, tRes, mRes] = await Promise.all([
-                    fetch(`posts.json?t=${t}`),
-                    fetch(`trends.json?t=${t}`),
-                    fetch(`metrics.json?t=${t}`)
-                ]);
-                
-                if (!pRes.ok || !tRes.ok || !mRes.ok) {
-                    throw new Error('One or more files not found');
-                }
+                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes'];
+                const responses = await Promise.all(files.map(f => fetch(`${f}.json?t=${t}`)));
+                if (!responses[0].ok || !responses[1].ok) throw new Error('Core data missing');
 
-                POSTS = await pRes.json();
-                const trendsRaw = await tRes.json();
-                const metrics = await mRes.json();
+                POSTS       = await responses[0].json();
+                TRENDS      = await responses[1].json();
+                const met   = await responses[2].json().catch(()=>({}));
+                SIGNALS     = responses[3].ok ? await responses[3].json().catch(()=>({})) : {};
+                JARGON      = responses[4].ok ? await responses[4].json().catch(()=>({})) : {};
+                CONSPIRACIES= responses[5].ok ? await responses[5].json().catch(()=>({})) : {};
+                const thraw = responses[6].ok ? await responses[6].json().catch(()=>({})) : {};
+                THREADS     = thraw.threads || [];
+                const mraw  = responses[7].ok ? await responses[7].json().catch(()=>({})) : {};
+                MEMES       = mraw.memes || [];
 
-                document.getElementById('statusBar').innerText = `Database Loaded: ${Array.isArray(POSTS) ? POSTS.length : 0} posts indexed.`;
+                document.getElementById('statusBar').textContent =
+                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · updated ${JARGON.updated || met.updated || ''}`;
                 document.getElementById('loading').style.display = 'none';
 
-                TRENDS = Array.isArray(trendsRaw) ? trendsRaw : [];
-                const trends = TRENDS;
-                document.getElementById('trends').innerHTML = trends.slice(0, 20).map(t => {
-                    let name = '', count = 0;
-                    if (Array.isArray(t)) { name = String(t[0] || ''); count = Number(t[1] || 0); }
-                    else if (t && typeof t === 'object') { name = String(t.name || t[0] || ''); count = Number(t.count || t[1] || 0); }
-                    const esc = name.replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return `<span class="trend-chip" onclick="setS('${esc.split(' ')[0]}')">${esc} <b>(${count})</b></span>`;
+                document.getElementById('trends').innerHTML = (Array.isArray(TRENDS)?TRENDS:[]).slice(0,20).map(t => {
+                    const name = Array.isArray(t)?t[0]:t.name, count = Array.isArray(t)?t[1]:t.count;
+                    return `<span class="trend-chip" onclick="setS('${esc(name)}')">${esc(name)} <b>(${count})</b></span>`;
                 }).join('');
 
-                const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
-                if (activeTab === 'bubbles') renderBubbles();
-                else render();
-            } catch (e) {
+                const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
+                switchTab(activeTab);
+            } catch(e) {
                 document.getElementById('loading').style.display = 'block';
                 startProgressPolling();
             }
         }
 
-        function setS(w) { document.getElementById('search').value = w; render(); }
+        function setS(w) { document.getElementById('search').value = w; switchTab('posts'); }
 
+        // ── Posts ─────────────────────────────────────────────────────────────
         function render() {
             const q = document.getElementById('search').value.trim().toLowerCase();
-            const activeTab = document.querySelector('.tab-btn.active').textContent.trim();
-            
-            if (!Array.isArray(POSTS) || POSTS.length === 0) {
-                document.getElementById('posts').innerHTML = '<div class="muted">No posts indexed yet.</div>';
-                return;
-            }
-
-            if (activeTab === 'Posts') {
-                renderPosts(q);
-            } else {
-                renderThreads(q);
-            }
+            if (!POSTS.length) { document.getElementById('posts').innerHTML='<div class="muted">No posts yet.</div>'; return; }
+            const filtered = q ? POSTS.filter(p=>(p.comment||'').toLowerCase().includes(q)) : POSTS;
+            const slice = filtered.slice(0,100);
+            document.getElementById('posts').innerHTML =
+                `<div class="count-bar">Found <b>${filtered.length.toLocaleString()}</b> posts${q?' matching "'+esc(q)+'"':''}</div>` +
+                slice.map(p => {
+                    let c = stripHTML(p.comment||'');
+                    c = esc(c.replace(/>>(\d+)([^\s])/g,'>>$1 $2'));
+                    if (q) c = c.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'), m=>`<mark>${m}</mark>`);
+                    return `<div class="post-card"><b>Anonymous</b> No.${p.post_id}
+                        <a href="https://boards.4channel.org/pol/thread/${p.thread_id}#p${p.post_id}" target="_blank" rel="noopener">[View]</a>
+                        <div style="margin-top:6px;white-space:pre-wrap">${c}</div></div>`;
+                }).join('');
         }
 
-        function renderPosts(q) {
-            const filtered = q ? POSTS.filter(p => (p.comment || '').toLowerCase().includes(q)) : POSTS;
-            const slice = filtered.slice(0, 100);
-            
-            if (slice.length === 0) {
-                document.getElementById('posts').innerHTML = `<div class="muted">No posts match "${q}".</div>`;
-                return;
-            }
-
-            document.getElementById('posts').innerHTML = `<div class="count-bar">Found <b>${filtered.length}</b> posts matching "${q}"</div>` + slice.map(p => {
-                let cleanComment = stripHTML(p.comment || '');
-                cleanComment = cleanComment.replace(/>>(\d+)([^\s])/g, '>>$1 $2');
-                cleanComment = cleanComment.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const thread = p.thread_id || 'unknown';
-                const pid = p.post_id || '—';
-                return `<div class="post-card"><b>Anonymous</b> No.${pid}: 
-                    <a href="https://boards.4channel.org/pol/thread/${thread}#p${pid}" target="_blank" rel="noopener noreferrer">[View]</a>
-                    <div style="margin-top:8px; white-space:pre-wrap;">${cleanComment}</div></div>`;
-            }).join('');
+        // ── Threads ───────────────────────────────────────────────────────────
+        function renderThreads() {
+            const q = document.getElementById('search').value.trim().toLowerCase();
+            if (!THREADS.length) { document.getElementById('threads').innerHTML='<div class="muted">No thread data yet.</div>'; return; }
+            const filtered = q ? THREADS.filter(t=>
+                (t.subject||'').toLowerCase().includes(q)||(t.preview||'').toLowerCase().includes(q)) : THREADS;
+            document.getElementById('threads').innerHTML =
+                `<div class="count-bar"><b>${filtered.length}</b> threads sorted by reply count</div>` +
+                filtered.slice(0,150).map(t => {
+                    const subj = t.subject ? `<div class="thread-subject">${esc(t.subject)}</div>` : '';
+                    const prev = t.preview ? `<div class="thread-preview">${esc(t.preview)}</div>` : '<div class="muted">(no text)</div>';
+                    return `<div class="thread-card">${subj}
+                        <div class="thread-meta">💬 ${t.replies} replies · 🖼 ${t.images} images ·
+                        <a href="https://boards.4channel.org/pol/thread/${t.thread_id}" target="_blank" rel="noopener">[Open Thread]</a></div>
+                        ${prev}</div>`;
+                }).join('');
         }
 
-        function renderThreads(q) {
-            // Filter to OPs only (posts with no post_id reply_to, or first post of thread)
-            const opMap = {};
-            POSTS.forEach(p => {
-                if (!opMap[p.thread_id]) {
-                    opMap[p.thread_id] = p;
-                }
-            });
-
-            const ops = Object.values(opMap);
-            const filtered = q ? ops.filter(p => (p.comment || '').toLowerCase().includes(q)) : ops;
-            const slice = filtered.slice(0, 100);
-
-            if (slice.length === 0) {
-                document.getElementById('threads').innerHTML = `<div class="muted">No threads match "${q}".</div>`;
-                return;
-            }
-
-            document.getElementById('threads').innerHTML = `<div class="count-bar">Found <b>${filtered.length}</b> threads matching "${q}"</div>` + slice.map(p => {
-                let cleanComment = stripHTML(p.comment || '');
-                cleanComment = cleanComment.replace(/>>(\d+)([^\s])/g, '>>$1 $2');
-                cleanComment = cleanComment.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const thread = p.thread_id || 'unknown';
-                const pid = p.post_id || '—';
-                return `<div class="post-card"><b>OP</b> No.${pid}: 
-                    <a href="https://boards.4channel.org/pol/thread/${thread}" target="_blank" rel="noopener noreferrer">[View Thread]</a>
-                    <div style="margin-top:8px; white-space:pre-wrap;">${cleanComment}</div></div>`;
-            }).join('');
-        }
-
+        // ── Bubbles ───────────────────────────────────────────────────────────
         function renderBubbles() {
             const container = document.getElementById('bubbles');
-            if (!TRENDS.length) {
-                container.innerHTML = '<div class="muted" style="padding:20px">No trend data yet.</div>';
-                return;
-            }
+            if (!TRENDS.length) { container.innerHTML='<div class="muted">No trend data yet.</div>'; return; }
+            const w = container.clientWidth||960, h=560;
+            container.innerHTML='';
+            const data = TRENDS.map(t=>({ name:Array.isArray(t)?String(t[0]):String(t.name||''), count:Array.isArray(t)?Number(t[1]):Number(t.count||0) })).filter(d=>d.name&&d.count>0);
+            const maxCount = d3.max(data,d=>d.count);
+            const rScale = d3.scaleSqrt().domain([0,maxCount]).range([18,90]);
+            const colorScale = d3.scaleSequential().domain([0,maxCount]).interpolator(d3.interpolateRgb('#ffaaaa','#7b0000'));
+            const sim = d3.forceSimulation(data).force('x',d3.forceX(w/2).strength(0.07)).force('y',d3.forceY(h/2).strength(0.07)).force('collide',d3.forceCollide(d=>rScale(d.count)+2.5)).stop();
+            for(let i=0;i<400;i++) sim.tick();
+            const svg=d3.select(container).append('svg').attr('width',w).attr('height',h);
+            const node=svg.selectAll('g').data(data).enter().append('g')
+                .attr('transform',d=>`translate(${Math.max(rScale(d.count),Math.min(w-rScale(d.count),d.x))},${Math.max(rScale(d.count),Math.min(h-rScale(d.count),d.y))})`)
+                .style('cursor','pointer')
+                .on('click',(e,d)=>setS(d.name));
+            node.append('circle').attr('r',d=>rScale(d.count)).attr('fill',d=>colorScale(d.count)).attr('stroke','rgba(255,255,255,0.3)').attr('stroke-width',1.5);
+            node.filter(d=>rScale(d.count)>=28).append('text').attr('class','bubble-label').attr('dy',d=>rScale(d.count)>=45?'-0.25em':'0.35em').style('font-size',d=>Math.min(rScale(d.count)/3.2,15)+'px').text(d=>d.name);
+            node.filter(d=>rScale(d.count)>=45).append('text').attr('class','bubble-count').attr('dy','1.1em').style('font-size',d=>Math.min(rScale(d.count)/4.5,12)+'px').text(d=>d.count);
+        }
 
-            const w = container.clientWidth || 960;
-            const h = 560;
-            container.innerHTML = '';
+        // ── Memes ─────────────────────────────────────────────────────────────
+        function renderMemes() {
+            const el = document.getElementById('memes');
+            if (!MEMES.length) { el.innerHTML='<div class="muted">No recurring images found yet (need 2+ posts with same image).</div>'; return; }
+            el.innerHTML = `<div class="count-bar"><b>${MEMES.length}</b> images posted more than once, sorted by frequency</div>
+                <div class="memes-grid">${MEMES.map(m=>`
+                <div class="meme-card">
+                    <a href="${esc(m.url)}" target="_blank" rel="noopener">
+                        <img src="${esc(m.thumb)}" alt="${esc(m.filename)}" loading="lazy" onerror="this.style.display='none'">
+                    </a>
+                    <div class="meme-info">
+                        <div class="meme-count">×${m.count}</div>
+                        <div class="meme-threads">${m.thread_count} thread${m.thread_count!==1?'s':''}</div>
+                        <div style="font-size:10px;color:#aaa;word-break:break-all">${esc(m.filename||'')}</div>
+                    </div>
+                </div>`).join('')}</div>`;
+        }
 
-            const data = TRENDS.map(t => ({
-                name: Array.isArray(t) ? String(t[0]) : String(t.name || ''),
-                count: Array.isArray(t) ? Number(t[1]) : Number(t.count || 0)
-            })).filter(d => d.name && d.count > 0);
+        // ── Signals ───────────────────────────────────────────────────────────
+        function renderSignals() {
+            const el = document.getElementById('signals');
+            const sigs = SIGNALS.signals || [];
+            if (!sigs.length) { el.innerHTML='<div class="muted">No signal posts detected in this batch.</div>'; return; }
+            const t3 = sigs.filter(s=>s.max_tier===3).length;
+            const t2 = sigs.filter(s=>s.max_tier===2).length;
+            const t1 = sigs.filter(s=>s.max_tier===1).length;
+            el.innerHTML = `
+                <div class="signal-count-row">
+                    <div class="sig-stat t3-stat"><div class="num">${t3}</div><div>Tier 3 — Direct Incitement</div></div>
+                    <div class="sig-stat t2-stat"><div class="num">${t2}</div><div>Tier 2 — Passive Mobilization</div></div>
+                    <div class="sig-stat t1-stat"><div class="num">${t1}</div><div>Tier 1 — Deniability Framing</div></div>
+                </div>
+                <div style="font-size:12px;color:#888;margin-bottom:12px">Showing top ${Math.min(sigs.length,150)} of ${SIGNALS.count} matched posts · updated ${SIGNALS.updated||''}</div>
+                ${sigs.slice(0,150).map(s=>{
+                    const tierClass = `t${s.max_tier}`;
+                    const badgeClass = `t${s.max_tier}-badge`;
+                    const cats = s.categories.map(c=>`<span class="cat-tag">${esc(c)}</span>`).join('');
+                    const trigs = s.triggers.map(t=>`<span class="trigger-tag">${esc(t)}</span>`).join('');
+                    // Highlight triggers in snippet
+                    let snip = esc(s.snippet||s.comment||'');
+                    s.triggers.forEach(t => {
+                        snip = snip.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
+                            m=>`<span class="signal-highlight">${m}</span>`);
+                    });
+                    return `<div class="signal-card ${tierClass}">
+                        <div style="margin-bottom:6px">
+                            <span class="signal-tier ${badgeClass}">TIER ${s.max_tier}</span>${cats}${trigs}
+                            <a href="https://boards.4channel.org/pol/thread/${s.thread_id}#p${s.post_id}" target="_blank" rel="noopener" style="float:right;font-size:11px">[View]</a>
+                        </div>
+                        <div style="white-space:pre-wrap;line-height:1.5">${snip}</div>
+                    </div>`;
+                }).join('')}`;
+        }
 
-            const maxCount = d3.max(data, d => d.count);
-            const rScale = d3.scaleSqrt().domain([0, maxCount]).range([18, 90]);
-            const colorScale = d3.scaleSequential()
-                .domain([0, maxCount])
-                .interpolator(d3.interpolateRgb('#ffaaaa', '#7b0000'));
+        // ── Jargon Pipeline ───────────────────────────────────────────────────
+        function renderJargon() {
+            const el = document.getElementById('jargon');
+            if (!JARGON.tiers) { el.innerHTML='<div class="muted">No jargon data yet.</div>'; return; }
+            const colors = {1:'#c88000',2:'#cc4400',3:'#8b0000'};
+            const fillClass = {1:'tier1-fill',2:'tier2-fill',3:'tier3-fill'};
+            const maxTermCount = Math.max(...[1,2,3].flatMap(t=>(JARGON.tiers[t]?.top_terms||[]).map(x=>x[1])));
+            el.innerHTML = [1,2,3].map(tier => {
+                const d = JARGON.tiers[tier];
+                if(!d) return '';
+                const terms = (d.top_terms||[]).map(([term,cnt])=>`
+                    <div class="jargon-bar-row">
+                        <div class="jargon-label" style="color:${colors[tier]};cursor:pointer" onclick="setS('${esc(term)}')">${esc(term)}</div>
+                        <div class="jargon-bar-wrap"><div class="jargon-bar-fill ${fillClass[tier]}" style="width:${Math.max(2,cnt/maxTermCount*100)}%"></div></div>
+                        <div class="jargon-count">${cnt}</div>
+                    </div>`).join('');
+                return `<div class="jargon-tier">
+                    <div class="jargon-tier-header">
+                        <h3 style="color:${colors[tier]}">Tier ${tier} — ${esc(d.label)}</h3>
+                        <span class="jargon-pct-label" style="color:${colors[tier]}">${d.pct}%</span>
+                        <span style="font-size:13px;color:#888">of posts · ${d.post_count.toLocaleString()} posts</span>
+                    </div>
+                    <div class="jargon-desc">${esc(d.desc)}</div>
+                    ${terms}
+                </div>`;
+            }).join('<hr style="border:none;border-top:1px solid #d3b49f;margin:8px 0 20px">') +
+            `<div style="font-size:12px;color:#aaa;margin-top:16px">Updated ${JARGON.updated||''} · ${(JARGON.total_posts||0).toLocaleString()} total posts analyzed</div>`;
+        }
 
-            // Run force layout synchronously so there's no animation jitter
-            const sim = d3.forceSimulation(data)
-                .force('x', d3.forceX(w / 2).strength(0.07))
-                .force('y', d3.forceY(h / 2).strength(0.07))
-                .force('collide', d3.forceCollide(d => rScale(d.count) + 2.5))
-                .stop();
-            for (let i = 0; i < 400; i++) sim.tick();
+        // ── Conspiracy Map ────────────────────────────────────────────────────
+        function renderConspiracy() {
+            const container = document.getElementById('conspiracy');
+            const nodes = CONSPIRACIES.nodes || [], edges = CONSPIRACIES.edges || [];
+            if (!nodes.length) { container.innerHTML='<div class="muted">No conspiracy theory data yet.</div>'; return; }
 
-            const svg = d3.select(container).append('svg')
-                .attr('width', w).attr('height', h);
+            const tierColor = {1:'#e8a000',2:'#cc4400',3:'#8b0000'};
+            const tierLabel = {1:'Entry Point (Gateway)',2:'Intermediate',3:'Deep End'};
+            container.innerHTML = `
+                <div class="conspiracy-legend">
+                    ${[1,2,3].map(t=>`<span><span class="legend-dot" style="background:${tierColor[t]}"></span>${tierLabel[t]}</span>`).join('')}
+                </div>
+                <div style="font-size:12px;color:#888;text-align:center;margin-bottom:8px">Node size = post count. Line thickness = co-occurrence. Click node to search.</div>
+                <svg id="conspiracy-svg"></svg>
+                <div style="font-size:12px;color:#aaa;text-align:center;margin-top:8px">Updated ${CONSPIRACIES.updated||''}</div>`;
 
-            const node = svg.selectAll('g').data(data).enter().append('g')
-                .attr('transform', d => {
-                    const r = rScale(d.count);
-                    const x = Math.max(r, Math.min(w - r, d.x));
-                    const y = Math.max(r, Math.min(h - r, d.y));
-                    return `translate(${x},${y})`;
-                })
-                .style('cursor', 'pointer')
-                .on('click', (event, d) => {
-                    document.getElementById('search').value = d.name;
-                    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-                    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-                    document.getElementById('posts').classList.add('active');
-                    document.querySelector('[data-tab="posts"]').classList.add('active');
-                    renderPosts(d.name.toLowerCase());
-                });
+            const w = container.clientWidth||960, h=500;
+            const svg = d3.select('#conspiracy-svg').attr('width',w).attr('height',h);
+
+            const maxCount = d3.max(nodes, n=>n.count)||1;
+            const rScale = d3.scaleSqrt().domain([0,maxCount]).range([10,50]);
+            const maxWeight = d3.max(edges,e=>e.weight)||1;
+            const wScale = d3.scaleLinear().domain([0,maxWeight]).range([0.5,6]);
+
+            // Build id→index map for force simulation links
+            const idIdx = Object.fromEntries(nodes.map((n,i)=>[n.id,i]));
+            const links = edges.map(e=>({ source:idIdx[e.source], target:idIdx[e.target], weight:e.weight }))
+                               .filter(e=>e.source!==undefined && e.target!==undefined);
+
+            const sim = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).id((_,i)=>i).distance(d=>80+rScale(nodes[d.source.index||d.source]?.count||0)))
+                .force('charge', d3.forceManyBody().strength(-120))
+                .force('center', d3.forceCenter(w/2,h/2))
+                .force('collide', d3.forceCollide(n=>rScale(n.count)+4));
+
+            const g = svg.append('g');
+
+            const link = g.selectAll('line').data(links).enter().append('line')
+                .attr('stroke','#d3b49f').attr('stroke-opacity',0.6)
+                .attr('stroke-width',d=>wScale(d.weight));
+
+            const node = g.selectAll('g').data(nodes).enter().append('g')
+                .style('cursor','pointer')
+                .call(d3.drag()
+                    .on('start',(e,d)=>{ if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+                    .on('drag',(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+                    .on('end',(e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }))
+                .on('click',(e,d)=>setS(d.label.split('/')[0].trim()));
 
             node.append('circle')
-                .attr('r', d => rScale(d.count))
-                .attr('fill', d => colorScale(d.count))
-                .attr('stroke', 'rgba(255,255,255,0.3)')
-                .attr('stroke-width', 1.5);
+                .attr('r',d=>rScale(d.count))
+                .attr('fill',d=>tierColor[d.tier]||'#888')
+                .attr('stroke','#fff').attr('stroke-width',1.5);
 
-            // Topic name — hide if bubble is too small
-            node.filter(d => rScale(d.count) >= 28).append('text')
-                .attr('class', 'bubble-label')
-                .attr('dy', d => rScale(d.count) >= 45 ? '-0.25em' : '0.35em')
-                .style('font-size', d => Math.min(rScale(d.count) / 3.2, 15) + 'px')
-                .text(d => d.name);
+            node.append('text')
+                .attr('text-anchor','middle').attr('dy','0.35em')
+                .style('fill','#fff').style('font-size',d=>Math.min(rScale(d.count)/3,12)+'px')
+                .style('pointer-events','none').style('font-weight','bold')
+                .text(d=>d.label.length>14?d.label.substring(0,12)+'…':d.label);
 
-            // Count — only on larger bubbles
-            node.filter(d => rScale(d.count) >= 45).append('text')
-                .attr('class', 'bubble-count')
-                .attr('dy', '1.1em')
-                .style('font-size', d => Math.min(rScale(d.count) / 4.5, 12) + 'px')
-                .text(d => d.count);
+            node.append('title').text(d=>`${d.label}\n${d.count} posts\nTier ${d.tier}`);
+
+            sim.on('tick',()=>{
+                link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+                node.attr('transform',d=>`translate(${Math.max(rScale(d.count),Math.min(w-rScale(d.count),d.x))},${Math.max(rScale(d.count),Math.min(h-rScale(d.count),d.y))})`);
+            });
         }
 
-        // --- Progress polling ------------------------------------------------
+        // ── Progress polling ──────────────────────────────────────────────────
         let progressInterval = null;
-
         function startProgressPolling() {
             if (progressInterval) return;
-            progressInterval = setInterval(async () => {
+            progressInterval = setInterval(async()=>{
                 try {
                     const res = await fetch(`progress.json?t=${Date.now()}`);
-                    if (!res.ok) return;
+                    if(!res.ok) return;
                     const p = await res.json();
-                    document.getElementById('progressText').textContent = p.message || '...';
-                    document.getElementById('progressBar').style.width = (p.pct || 0) + '%';
-                    document.getElementById('progressPct').textContent = (p.pct || 0) + '%';
-                    if (p.status === 'sleeping' || p.status === 'done') {
-                        clearInterval(progressInterval);
-                        progressInterval = null;
-                        load();
+                    document.getElementById('progressText').textContent = p.message||'...';
+                    document.getElementById('progressBar').style.width = (p.pct||0)+'%';
+                    document.getElementById('progressPct').textContent = (p.pct||0)+'%';
+                    if(p.status==='sleeping'||p.status==='done') {
+                        clearInterval(progressInterval); progressInterval=null; load();
                     }
-                } catch (e) {}
-            }, 800);
+                } catch(e){}
+            },800);
         }
 
-        // --- Refresh All -----------------------------------------------------
+        // ── Refresh All ───────────────────────────────────────────────────────
         async function refreshAll() {
-            if (!confirm('Delete all collected data and restart the harvest now?')) return;
+            if(!confirm('Delete all collected data and restart the harvest now?')) return;
             try {
-                const res = await fetch('/refresh', { method: 'POST' });
-                if (res.ok) {
-                    POSTS = []; TRENDS = [];
-                    document.getElementById('posts').innerHTML = '';
-                    document.getElementById('threads').innerHTML = '';
-                    document.getElementById('bubbles').innerHTML = '';
-                    document.getElementById('trends').innerHTML = '';
-                    document.getElementById('progressBar').style.width = '0%';
-                    document.getElementById('progressPct').textContent = '0%';
-                    document.getElementById('progressText').textContent = 'Restarting collection...';
-                    document.getElementById('loading').style.display = 'block';
+                const res = await fetch('/refresh',{method:'POST'});
+                if(res.ok) {
+                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];
+                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy'].forEach(id=>{
+                        document.getElementById(id).innerHTML='';
+                    });
+                    document.getElementById('trends').innerHTML='';
+                    document.getElementById('progressBar').style.width='0%';
+                    document.getElementById('progressPct').textContent='0%';
+                    document.getElementById('progressText').textContent='Restarting collection...';
+                    document.getElementById('loading').style.display='block';
                     startProgressPolling();
                 }
-            } catch (e) {
-                alert('Cannot reach harvester. Make sure harvester.py is running and open this page at http://localhost:8080/viewer.html');
+            } catch(e) {
+                alert('Cannot reach harvester. Open this page at http://localhost:8080/viewer.html');
             }
         }
 
-        // --- Boot ------------------------------------------------------------
+        // ── Boot ──────────────────────────────────────────────────────────────
         load();
-        const fastRefresh = setInterval(() => {
-            if (POSTS.length > 0) {
-                clearInterval(fastRefresh);
-                setInterval(load, 10000);
-            } else {
-                load();
-            }
-        }, 3000);
+        const fastRefresh = setInterval(()=>{
+            if(POSTS.length>0){ clearInterval(fastRefresh); setInterval(load,10000); }
+            else load();
+        },3000);
     </script>
 </body>
 </html>

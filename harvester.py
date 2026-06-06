@@ -113,7 +113,9 @@ class _Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == '/refresh':
-            for fname in ('posts.json', 'trends.json', 'metrics.json', 'progress.json'):
+            for fname in ('posts.json', 'trends.json', 'metrics.json', 'progress.json',
+                          'signals.json', 'jargon.json', 'conspiracies.json',
+                          'threads.json', 'memes.json'):
                 try:
                     os.remove(os.path.join(SCRIPT_DIR, fname))
                 except FileNotFoundError:
@@ -139,6 +141,377 @@ class _Handler(SimpleHTTPRequestHandler):
 def _start_server():
     server = HTTPServer(('', PORT), _Handler)
     server.serve_forever()
+
+# ----------------------------------------------------------------------------
+
+# --- "Someone Should" signal detection ---------------------------------------
+#
+# Patterns are organised by escalation tier. Each entry is:
+#   (compiled_regex, category_label, tier)
+# Tier 1 = ambient noise / plausible deniability language
+# Tier 2 = passive mobilisation / wishing harm
+# Tier 3 = direct indirect incitement (highest signal)
+#
+_RAW_PATTERNS = [
+    # T1 — deniability / hedging
+    (r"i'?m not (saying|suggesting|advocating|calling for|telling anyone)",    "deniability",          1),
+    (r"not (a threat|threatening|inciting)",                                    "deniability",          1),
+    (r"just (asking|saying|putting it out there|thinking out loud)",            "deniability",          1),
+    (r"for (legal|obvious|educational) (reasons?|purposes?)",                   "deniability",          1),
+    (r"hypothetically (speaking)?",                                             "hypothetical",         1),
+    (r"what if (someone|somebody|a person|they) (were? to|would|could)",        "hypothetical",         1),
+    (r"imagine if (someone|somebody|they|a person)",                            "hypothetical",         1),
+
+    # T2 — passive mobilisation / wishing
+    (r"someone (should|needs? to|ought to|has to|must|could easily)",           "passive mobilization", 2),
+    (r"somebody (should|needs? to|ought to|has to|must)",                       "passive mobilization", 2),
+    (r"if only (someone|somebody|a person) would",                              "passive mobilization", 2),
+    (r"the right (person|people|individual|group) (could|would|should)",        "passive mobilization", 2),
+    (r"wouldn'?t it be (funny|great|nice|a shame|sad|terrible|unfortunate)",    "wishing",              2),
+    (r"would be a (real )?(shame|pity|tragedy|loss|waste)",                     "shame language",       2),
+    (r"shame if (something|anything|an accident|something bad)",                "shame language",       2),
+    (r"accidents? (can |do )?happen",                                           "shame language",       2),
+    (r"i (wonder|bet|hope) (when|how long before|if someone)",                  "wishing",              2),
+    (r"sooner or later (someone|they|he|she|people)",                           "inevitability",        2),
+    (r"it'?s only a matter of time",                                            "inevitability",        2),
+    (r"won'?t (last|be around) (long|much longer|forever)",                     "inevitability",        2),
+
+    # T3 — indirect incitement (highest)
+    (r"needs? to be (stopped|dealt with|removed|eliminated|handled|taken care of|silenced|put down)", "indirect incitement", 3),
+    (r"deserves? (what'?s coming|everything coming|to (die|suffer|burn|hang))", "indirect incitement",  3),
+    (r"(get|gets|getting) what (they|he|she).{0,20}deserv",                     "indirect incitement",  3),
+    (r"someone (deal|deals|dealt|dealing) with (him|her|them|this|that)",        "indirect incitement",  3),
+    (r"has (this |it )?coming( to (him|her|them))?",                            "indirect incitement",  3),
+    (r"(do|did) (the world|everyone|society|us all) a (favor|favour)",          "indirect incitement",  3),
+    (r"not going to end well for (him|her|them|these people)",                  "indirect incitement",  3),
+]
+
+SIGNAL_PATTERNS = [
+    (re.compile(pat, re.IGNORECASE), label, tier)
+    for pat, label, tier in _RAW_PATTERNS
+]
+
+# --- Radicalization jargon tiers ---------------------------------------------
+
+JARGON_TIERS = {
+    1: {
+        "label": "Entry Level",
+        "desc":  "Mainstream skepticism — the on-ramp",
+        "terms": ["msm", "mainstream media", "fake news", "woke", "deep state",
+                  "sheeple", "normie", "normies", "bluepilled", "blue pill",
+                  "red pill", "redpill", "wake up", "they don't want you to know"],
+    },
+    2: {
+        "label": "Intermediate",
+        "desc":  "Active ideology — in-group vocabulary",
+        "terms": ["redpilled", "based", "npc", "clown world", "globalist",
+                  "race realist", "race realism", "ethnostate", "white nationalist",
+                  "great replacement", "demographic replacement", "replacement theory",
+                  "civic nationalist", "race traitor", "cuck", "soy", "soyjak",
+                  "black pill", "blackpilled"],
+    },
+    3: {
+        "label": "Deep End",
+        "desc":  "Extremist / pre-violence terminology",
+        "terms": ["zog", "day of the rope", "dotr", "rwds", "14 words", "1488",
+                  "race war", "rahowa", "accelerate", "accelerationism",
+                  "turner diaries", "saint tarrant", "saint breivik", "saint roof",
+                  "final solution", "white genocide must", "it's time"],
+    },
+}
+
+# --- Conspiracy theory definitions -------------------------------------------
+# Each entry: id → (keyword_patterns, display_label, tier)
+# Tier 1 = entry-point (gateway),  2 = intermediate,  3 = deep end
+
+CONSPIRACY_DEFS = {
+    "media_bias":        (["mainstream media", "msm", "fake news", "media lies",
+                           "media is lying", "they control the media"],
+                          "Media Bias", 1),
+    "crime_stats":       (["black crime", "crime statistics", "crime stats",
+                           "they hide the", "unreported crime"],
+                          "Hidden Crime Stats", 1),
+    "deep_state":        (["deep state", "shadow government", "the establishment",
+                           "they control", "behind the scenes"],
+                          "Deep State", 1),
+    "great_replacement": (["replacement", "replacing us", "demographic replacement",
+                           "they're replacing", "replaced by"],
+                          "Great Replacement", 1),
+    "globalism":         (["globalist", "globalism", "new world order", "nwo",
+                           "global elite", "george soros", "open borders agenda"],
+                          "Globalism / NWO", 2),
+    "jewish_control":    (["jewish control", "jews control", "jewish media",
+                           "jewish owned", "jewish influence", "jewish power",
+                           "the jews run", "jewish agenda"],
+                          "Jewish Control", 2),
+    "zog":               (["zog", "zionist occupied", "zionist agenda",
+                           "israel controls", "jewish state controls"],
+                          "ZOG / Zionism", 2),
+    "white_genocide":    (["white genocide", "genocide of whites", "anti-white",
+                           "anti white", "extermination of whites",
+                           "whites are being"],
+                          "White Genocide", 2),
+    "iq_race":           (["race and iq", "racial iq", "iq differences",
+                           "iq by race", "african iq", "average iq"],
+                          "Race & IQ", 2),
+    "immigration_plot":  (["replacement immigration", "immigration agenda",
+                           "open borders", "they want immigrants",
+                           "importing voters", "demographic weapon"],
+                          "Immigration Plot", 2),
+    "accelerationism":   (["accelerate", "accelerationism", "let it burn",
+                           "hasten the collapse", "collapse the system",
+                           "boogaloo"],
+                          "Accelerationism", 3),
+    "race_war":          (["race war", "race war now", "civil war 2",
+                           "rahowa", "it's coming", "revolution is"],
+                          "Race War", 3),
+    "turner_diaries":    (["turner diaries", "day of the rope", "dotr",
+                           "rwds", "14 words", "1488", "88",
+                           "saint tarrant", "saint breivik"],
+                          "Turner Diaries / 1488", 3),
+}
+
+# Precompile conspiracy patterns
+_CONSPIRACY_COMPILED = {
+    cid: ([re.compile(r'\b' + re.escape(kw) + r'\b', re.IGNORECASE) for kw in kws], label, tier)
+    for cid, (kws, label, tier) in CONSPIRACY_DEFS.items()
+}
+
+# ---------------------------------------------------------------------------
+
+def detect_signals(posts):
+    """
+    Scan current batch for passive-incitement language.
+    Returns list of signal dicts sorted by score desc.
+    """
+    results = []
+    for p in posts:
+        raw = p.get('com', '')
+        if not raw:
+            continue
+        text = clean_text(raw)
+        if len(text) < 10:
+            continue
+
+        matched_categories = []
+        matched_triggers   = []
+        max_tier = 0
+
+        for pattern, label, tier in SIGNAL_PATTERNS:
+            m = pattern.search(text)
+            if m:
+                matched_categories.append(label)
+                matched_triggers.append(m.group(0).strip())
+                if tier > max_tier:
+                    max_tier = tier
+
+        if not matched_triggers:
+            continue
+
+        # Score = sum of tier values for all matched patterns
+        score = sum(tier for pat, _label, tier in SIGNAL_PATTERNS
+                    if pat.search(text))
+
+        # Snippet: 120 chars around first match for preview
+        first_match = SIGNAL_PATTERNS[0][0].search(text)
+        for pat, _, _ in SIGNAL_PATTERNS:
+            m = pat.search(text)
+            if m:
+                start = max(0, m.start() - 80)
+                end   = min(len(text), m.end() + 80)
+                snippet = ('...' if start > 0 else '') + text[start:end] + ('...' if end < len(text) else '')
+                break
+
+        results.append({
+            "post_id":    p['no'],
+            "thread_id":  p.get('thread_id'),
+            "score":      score,
+            "max_tier":   max_tier,
+            "categories": list(dict.fromkeys(matched_categories)),  # deduped, ordered
+            "triggers":   list(dict.fromkeys(t.lower() for t in matched_triggers)),
+            "snippet":    snippet,
+            "comment":    text,
+        })
+
+    results.sort(key=lambda x: (-x['score'], -x['max_tier']))
+
+    now = utcnow()
+    out = {"updated": now, "count": len(results), "signals": results[:200]}
+    dest = os.path.join(SCRIPT_DIR, 'signals.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Signals: {len(results)} posts matched ({sum(1 for r in results if r['max_tier']==3)} tier-3)")
+
+
+def detect_jargon(posts):
+    """Classify posts by radicalization vocabulary tier and track term frequency."""
+    tier_counts   = {1: 0, 2: 0, 3: 0}
+    tier_term_hits = {1: collections.Counter(), 2: collections.Counter(), 3: collections.Counter()}
+
+    for p in posts:
+        raw = p.get('com', '')
+        if not raw:
+            continue
+        text = clean_text(raw).lower()
+        post_max_tier = 0
+        for tier, info in JARGON_TIERS.items():
+            for term in info['terms']:
+                if term in text:
+                    tier_term_hits[tier][term] += 1
+                    if tier > post_max_tier:
+                        post_max_tier = tier
+        if post_max_tier > 0:
+            tier_counts[post_max_tier] += 1
+
+    total_posts = sum(1 for p in posts if p.get('com'))
+    out = {
+        "updated":     utcnow(),
+        "total_posts": total_posts,
+        "tiers": {
+            str(t): {
+                "label":      JARGON_TIERS[t]["label"],
+                "desc":       JARGON_TIERS[t]["desc"],
+                "post_count": tier_counts[t],
+                "pct":        round(tier_counts[t] / total_posts * 100, 1) if total_posts else 0,
+                "top_terms":  tier_term_hits[t].most_common(15),
+            }
+            for t in (1, 2, 3)
+        },
+    }
+    dest = os.path.join(SCRIPT_DIR, 'jargon.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Jargon: T1={tier_counts[1]} T2={tier_counts[2]} T3={tier_counts[3]} posts")
+
+
+def detect_conspiracies(posts):
+    """
+    Detect conspiracy theory co-occurrence across posts.
+    Outputs nodes (theories) and edges (co-occurrence pairs) for network viz.
+    """
+    theory_posts  = {cid: [] for cid in CONSPIRACY_DEFS}  # posts per theory
+    theory_counts = collections.Counter()
+
+    for p in posts:
+        raw = p.get('com', '')
+        if not raw:
+            continue
+        text = clean_text(raw).lower()
+        present = []
+        for cid, (pats, label, tier) in _CONSPIRACY_COMPILED.items():
+            if any(pat.search(text) for pat in pats):
+                present.append(cid)
+                theory_counts[cid] += 1
+        for cid in present:
+            theory_posts[cid].append(p['no'])
+
+    # Co-occurrence edges: count posts where both theories appear
+    cids = [cid for cid in CONSPIRACY_DEFS if theory_counts[cid] > 0]
+    edges = []
+    for i, a in enumerate(cids):
+        a_set = set(theory_posts[a])
+        for b in cids[i+1:]:
+            overlap = len(a_set & set(theory_posts[b]))
+            if overlap > 0:
+                edges.append({"source": a, "target": b, "weight": overlap})
+
+    nodes = [
+        {
+            "id":    cid,
+            "label": CONSPIRACY_DEFS[cid][1],
+            "tier":  CONSPIRACY_DEFS[cid][2],
+            "count": theory_counts[cid],
+        }
+        for cid in CONSPIRACY_DEFS if theory_counts[cid] > 0
+    ]
+    nodes.sort(key=lambda n: -n["count"])
+    edges.sort(key=lambda e: -e["weight"])
+
+    out = {"updated": utcnow(), "nodes": nodes, "edges": edges[:100]}
+    dest = os.path.join(SCRIPT_DIR, 'conspiracies.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Conspiracies: {len(nodes)} theories, {len(edges)} co-occurrence links")
+
+
+def detect_memes(posts):
+    """Track most-reposted images by MD5 hash. Same file = same meme."""
+    md5_info = {}
+    for p in posts:
+        if not p.get('md5') or not p.get('tim'):
+            continue
+        md5 = p['md5']
+        if md5 not in md5_info:
+            md5_info[md5] = {
+                'count': 0, 'tim': p['tim'],
+                'ext': p.get('ext', '.jpg'),
+                'filename': p.get('filename', ''),
+                'threads': set(),
+            }
+        md5_info[md5]['count'] += 1
+        if p.get('thread_id'):
+            md5_info[md5]['threads'].add(p['thread_id'])
+
+    results = [
+        {
+            'md5':          md5,
+            'count':        d['count'],
+            'thread_count': len(d['threads']),
+            'filename':     d['filename'],
+            'url':          f"https://i.4cdn.org/{BOARD}/{d['tim']}{d['ext']}",
+            'thumb':        f"https://i.4cdn.org/{BOARD}/{d['tim']}s.jpg",
+        }
+        for md5, d in md5_info.items() if d['count'] >= 2
+    ]
+    results.sort(key=lambda x: -x['count'])
+
+    out = {"updated": utcnow(), "memes": results[:60]}
+    dest = os.path.join(SCRIPT_DIR, 'memes.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Memes: {len(results)} recurring images")
+
+
+def build_thread_summaries(catalog_threads, posts):
+    """
+    Build per-thread summaries using catalog metadata + post counts.
+    catalog_threads: list of thread objects from the catalog JSON.
+    posts: full harvested post list (to count replies per thread).
+    """
+    reply_counts = collections.Counter(p['thread_id'] for p in posts if p.get('thread_id'))
+
+    summaries = []
+    for t in catalog_threads:
+        tid    = t.get('no')
+        sub    = t.get('sub', '')
+        com    = clean_text(t.get('com', '')) if t.get('com') else ''
+        # Truncate OP text for display
+        preview = com[:300] + ('…' if len(com) > 300 else '')
+        summaries.append({
+            "thread_id":  tid,
+            "subject":    sub,
+            "preview":    preview,
+            "replies":    reply_counts.get(tid, 0),
+            "images":     t.get('images', 0),
+            "time":       t.get('time', 0),
+        })
+
+    summaries.sort(key=lambda x: -x['replies'])
+    out = {"updated": utcnow(), "threads": summaries}
+    dest = os.path.join(SCRIPT_DIR, 'threads.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Threads: {len(summaries)} summaries written")
 
 # ----------------------------------------------------------------------------
 
@@ -174,11 +547,17 @@ def save_and_analyze(posts):
         json.dump({"velocity": velocity, "updated": now}, f)
     os.replace(tmp, metrics_file)
 
-    # Trend analysis on the raw current batch — real mention counts, not DB queries
+    # Trend analysis on the raw current batch
     raw_comments = [p['com'] for p in posts if p.get('com')]
     update_trends(raw_comments)
 
-    # Write ALL posts from the current batch so viewer search matches trend counts exactly
+    # Analysis features
+    detect_signals(posts)
+    detect_jargon(posts)
+    detect_conspiracies(posts)
+    detect_memes(posts)
+
+    # Write ALL posts from the current batch
     all_posts = [
         {"post_id": p['no'], "thread_id": p.get('thread_id'), "name": p.get('name', 'Anonymous'),
          "time": p.get('now', ''), "comment": p.get('com', '')}
@@ -192,6 +571,10 @@ def save_and_analyze(posts):
     os.replace(tmp, posts_file)
 
     conn.close()
+
+
+def save_thread_summaries(catalog_threads, posts):
+    build_thread_summaries(catalog_threads, posts)
 
 def clean_text(raw):
     text = re.sub(r'<[^>]+>', ' ', raw)
@@ -320,8 +703,11 @@ def run_harvest():
             url = f"https://a.4cdn.org/{BOARD}/catalog.json"
             r = requests.get(url, timeout=10)
             threads = []
+            catalog_threads = []
             for page in r.json():
-                threads.extend([t['no'] for t in page.get('threads', [])])
+                for t in page.get('threads', []):
+                    threads.append(t['no'])
+                    catalog_threads.append(t)
 
             total = len(threads)
             print(f"[*] Found {total} threads — fetching all posts...")
@@ -353,6 +739,7 @@ def run_harvest():
             write_progress("analyzing", total, total, len(all_posts),
                            f"Analyzing {len(all_posts):,} posts for trending topics...")
             save_and_analyze(all_posts)
+            save_thread_summaries(catalog_threads, all_posts)
 
             write_progress("sleeping", total, total, len(all_posts),
                            f"Done — {len(all_posts):,} posts indexed. Next refresh in 5 min.")

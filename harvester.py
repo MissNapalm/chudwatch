@@ -78,6 +78,7 @@ TOPIC_GROUPS = {
     'Jews':      ['jew', 'jews', 'jewish', 'jewry', 'kike', 'kikes', 'heeb', 'heebs'],
     'White':     ['white', 'whites', 'whiteness', 'white people', 'white man', 'white men',
                   'white woman', 'white women', 'white race', 'aryan', 'aryans'],
+    'Trans':     ['transgender', 'tran', 'trans', 'troon', 'trooned', 'tranny', 'trannies'],
     'Blacks':    ['black', 'blacks', 'nigger', 'niggers', 'nigga', 'niggas'],
     'Muslims':   ['muslim', 'muslims', 'islam', 'islamic', 'islamist', 'islamists'],
     'America':   ['america', 'american', 'americans', 'usa', 'u.s.'],

@@ -23,12 +23,17 @@
         .alert { color: red; font-weight: bold; }
         .muted { color: #666; font-size: 12px; }
         .count-bar { background: #f7f3e9; padding: 10px; margin-bottom: 15px; border: 1px solid #d3b49f; font-weight: bold; }
-        #loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; }
-        .loading-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 40px; border-radius: 10px; text-align: center; }
+        #loading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 9999; }
+        .loading-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 40px 50px; border-radius: 10px; text-align: center; min-width: 380px; }
         .loading-content h2 { color: #0f0c5d; margin-bottom: 20px; }
-        .spinner { border: 4px solid #d3b49f; border-top: 4px solid #0f0c5d; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        .spinner { border: 4px solid #d3b49f; border-top: 4px solid #0f0c5d; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .progress-text { color: #666; font-size: 14px; margin-top: 10px; }
+        .progress-bar-wrap { background: #f0eade; border: 1px solid #d3b49f; border-radius: 8px; height: 18px; margin: 14px 0 8px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #800000, #0f0c5d); border-radius: 8px; transition: width 0.4s ease; width: 0%; }
+        .progress-text { color: #555; font-size: 13px; margin-top: 6px; min-height: 18px; }
+        .progress-pct { color: #0f0c5d; font-weight: bold; font-size: 13px; margin-top: 2px; }
+        .refresh-btn { position: fixed; top: 18px; right: 24px; background: #800000; color: #fff; border: none; padding: 9px 18px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; z-index: 100; }
+        .refresh-btn:hover { background: #5c0000; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         #bubbles svg { display: block; margin: 0 auto; }
@@ -37,11 +42,15 @@
     </style>
 </head>
 <body>
+    <button class="refresh-btn" onclick="refreshAll()">↺ Refresh All</button>
+
     <div id="loading">
         <div class="loading-content">
-            <h2>ChudWatch Loading</h2>
+            <h2>ChudWatch</h2>
             <div class="spinner"></div>
-            <div class="progress-text" id="progressText">Harvesting posts from /pol/...</div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
+            <div class="progress-pct" id="progressPct">0%</div>
+            <div class="progress-text" id="progressText">Connecting to harvester...</div>
         </div>
     </div>
 
@@ -121,8 +130,8 @@
                 if (activeTab === 'bubbles') renderBubbles();
                 else render();
             } catch (e) {
-                document.getElementById('progressText').innerText = 'Waiting for data to populate... (will auto-refresh)';
                 document.getElementById('loading').style.display = 'block';
+                startProgressPolling();
             }
         }
 
@@ -266,7 +275,51 @@
                 .text(d => d.count);
         }
 
-        let lastDataTime = 0;
+        // --- Progress polling ------------------------------------------------
+        let progressInterval = null;
+
+        function startProgressPolling() {
+            if (progressInterval) return;
+            progressInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`progress.json?t=${Date.now()}`);
+                    if (!res.ok) return;
+                    const p = await res.json();
+                    document.getElementById('progressText').textContent = p.message || '...';
+                    document.getElementById('progressBar').style.width = (p.pct || 0) + '%';
+                    document.getElementById('progressPct').textContent = (p.pct || 0) + '%';
+                    if (p.status === 'sleeping' || p.status === 'done') {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        load();
+                    }
+                } catch (e) {}
+            }, 800);
+        }
+
+        // --- Refresh All -----------------------------------------------------
+        async function refreshAll() {
+            if (!confirm('Delete all collected data and restart the harvest now?')) return;
+            try {
+                const res = await fetch('/refresh', { method: 'POST' });
+                if (res.ok) {
+                    POSTS = []; TRENDS = [];
+                    document.getElementById('posts').innerHTML = '';
+                    document.getElementById('threads').innerHTML = '';
+                    document.getElementById('bubbles').innerHTML = '';
+                    document.getElementById('trends').innerHTML = '';
+                    document.getElementById('progressBar').style.width = '0%';
+                    document.getElementById('progressPct').textContent = '0%';
+                    document.getElementById('progressText').textContent = 'Restarting collection...';
+                    document.getElementById('loading').style.display = 'block';
+                    startProgressPolling();
+                }
+            } catch (e) {
+                alert('Cannot reach harvester. Make sure harvester.py is running and open this page at http://localhost:8080/viewer.html');
+            }
+        }
+
+        // --- Boot ------------------------------------------------------------
         load();
         const fastRefresh = setInterval(() => {
             if (POSTS.length > 0) {

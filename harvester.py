@@ -5,6 +5,8 @@ import collections
 import re
 import json
 import html
+import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 from datetime import datetime, timezone
 import sys
 import os
@@ -89,6 +91,56 @@ TOPIC_GROUPS = {
 
 # Flat set of all variants that belong to a group (for fast exclusion)
 _ALL_GROUP_VARIANTS = {v for variants in TOPIC_GROUPS.values() for v in variants}
+
+# --- HTTP server & refresh signal -------------------------------------------
+
+PORT = 8080
+refresh_event = threading.Event()
+
+def write_progress(status, current, total, posts, message):
+    pct = int(current / total * 100) if total > 0 else 0
+    data = {"status": status, "current": current, "total": total,
+            "posts": posts, "pct": pct, "message": message}
+    tmp = os.path.join(SCRIPT_DIR, 'progress.json.tmp')
+    dest = os.path.join(SCRIPT_DIR, 'progress.json')
+    with open(tmp, 'w') as f:
+        json.dump(data, f)
+    os.replace(tmp, dest)
+
+class _Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=SCRIPT_DIR, **kwargs)
+
+    def do_POST(self):
+        if self.path == '/refresh':
+            for fname in ('posts.json', 'trends.json', 'metrics.json', 'progress.json'):
+                try:
+                    os.remove(os.path.join(SCRIPT_DIR, fname))
+                except FileNotFoundError:
+                    pass
+            refresh_event.set()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+        else:
+            self.send_error(404)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass  # silence request logs
+
+def _start_server():
+    server = HTTPServer(('', PORT), _Handler)
+    server.serve_forever()
+
+# ----------------------------------------------------------------------------
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -255,20 +307,31 @@ def _write_trends(trends_out, post_count, fallback=False):
     os.replace(tmp_file, trends_file)  # atomic — viewer never sees a partial file
 
 def run_harvest():
-    print(f"[*] Starting ChudWatch harvest on /{BOARD}/...")
+    threading.Thread(target=_start_server, daemon=True).start()
+    print(f"[*] ChudWatch viewer → http://localhost:{PORT}/viewer.html")
     init_db()
-    
+
     while True:
+        refresh_event.clear()
         try:
+            write_progress("starting", 0, 0, 0, "Fetching /pol/ catalog...")
+            print(f"[*] Starting harvest on /{BOARD}/...")
+
             url = f"https://a.4cdn.org/{BOARD}/catalog.json"
             r = requests.get(url, timeout=10)
             threads = []
             for page in r.json():
                 threads.extend([t['no'] for t in page.get('threads', [])])
-            
-            print(f"[*] Found {len(threads)} threads — fetching all posts...")
+
+            total = len(threads)
+            print(f"[*] Found {total} threads — fetching all posts...")
+            write_progress("harvesting", 0, total, 0,
+                           f"Found {total} threads. Starting download...")
+
             all_posts = []
             for i, thread_id in enumerate(threads):
+                if refresh_event.is_set():
+                    break
                 try:
                     thread_url = f"https://a.4cdn.org/{BOARD}/thread/{thread_id}.json"
                     tr = requests.get(thread_url, timeout=10)
@@ -278,16 +341,28 @@ def run_harvest():
                     all_posts.extend(posts)
                 except:
                     pass
-                if (i + 1) % 25 == 0:
-                    print(f"[ {i+1}/{len(threads)} threads | {len(all_posts)} posts so far ]")
+                if (i + 1) % 10 == 0:
+                    msg = f"Downloading threads: {i+1}/{total} — {len(all_posts):,} posts collected"
+                    print(f"[ {i+1}/{total} threads | {len(all_posts):,} posts ]")
+                    write_progress("harvesting", i + 1, total, len(all_posts), msg)
 
-            print(f"[+] Harvested {len(all_posts)} posts from {len(threads)} threads")
+            if refresh_event.is_set():
+                continue
+
+            print(f"[+] Harvested {len(all_posts):,} posts from {total} threads")
+            write_progress("analyzing", total, total, len(all_posts),
+                           f"Analyzing {len(all_posts):,} posts for trending topics...")
             save_and_analyze(all_posts)
+
+            write_progress("sleeping", total, total, len(all_posts),
+                           f"Done — {len(all_posts):,} posts indexed. Next refresh in 5 min.")
             print("[*] Sleeping 5 minutes before next refresh...")
-            time.sleep(300)
+            refresh_event.wait(timeout=300)
+
         except Exception as e:
             print(f"[!] Error: {e}")
-            time.sleep(60)
+            write_progress("error", 0, 0, 0, f"Error: {e}. Retrying in 60s...")
+            refresh_event.wait(timeout=60)
 
 if __name__ == "__main__":
     run_harvest()

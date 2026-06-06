@@ -199,6 +199,7 @@
             <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
             <div class="progress-pct" id="progressPct">0%</div>
             <div class="progress-text" id="progressText">Connecting to harvester...</div>
+            <div id="progressStats" style="margin-top:12px;font-size:12px;color:#888;max-width:420px;text-align:left;line-height:1.8"></div>
         </div>
     </div>
 
@@ -209,13 +210,6 @@
 
         <div class="card">
             <strong>Trending:</strong> <span id="trends"></span>
-        </div>
-        <div id="newDataBanner" style="display:none;background:#1a3a1a;color:#5cb85c;padding:8px 16px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
-            <span>New harvest data available</span>
-            <div style="display:flex;gap:8px">
-                <button onclick="loadNewData()" style="background:#5cb85c;color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold">Load new data</button>
-                <button onclick="this.closest('#newDataBanner').style.display='none'" style="background:transparent;color:#5cb85c;border:1px solid #5cb85c;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px">Dismiss</button>
-            </div>
         </div>
         <div class="search-area">
             <input type="text" id="search" placeholder="Search posts..." onkeydown="if(event.key==='Enter') render()">
@@ -265,8 +259,7 @@
 
     <script>
         let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [], ASTROTURF = {}, PULSE = {}, TRANS = {}, FLAGS = {}, TIMEHEAT = {}, TRIPCODES = {}, COOCCUR = {}, LONGITUDINAL = {}, ARCS = {}, NARRATIVES = {};
-        let _lastUpdated = null;   // null = never rendered; set after first render; frozen until user loads new data
-        let _dataLoadedAt = 0;     // epoch-seconds when we last rendered; used to detect newer harvests
+        let _lastUpdated = null;   // null = never successfully loaded; set after first render to stop fastRefresh
         let _loadLock = false;     // prevent concurrent load() calls
 
         const stripHTML = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent || ''; };
@@ -320,31 +313,21 @@
                 NARRATIVES   = responses[17].ok ? await responses[17].json().catch(()=>({})) : {};
 
                 const newUpdated = JARGON.updated || met.updated || '';
-                const isFirstLoad = _lastUpdated === null;
-                // Use a stable non-empty key — fall back to fetch timestamp so it's always set
                 _lastUpdated = newUpdated || String(t);
-                _dataLoadedAt = t / 1000; // epoch seconds
 
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('newDataBanner').style.display = 'none';
+                document.getElementById('progressStats').innerHTML = '';
                 document.getElementById('statusBar').textContent =
-                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · fetched ${newUpdated} · frozen`;
+                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · fetched ${newUpdated}`;
 
                 document.getElementById('trends').innerHTML = (Array.isArray(TRENDS)?TRENDS:[]).slice(0,20).map(tr => {
                     const name = Array.isArray(tr)?tr[0]:tr.name, count = Array.isArray(tr)?tr[1]:tr.count;
                     return `<span class="trend-chip" onclick="setS('${esc(name)}')">${esc(name)} <b>(${count})</b></span>`;
                 }).join('');
 
-                if (isFirstLoad) {
-                    // Render the active tab exactly once. After this the display is frozen.
-                    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
-                    switchTab(activeTab);
-                    // Stop the boot retry interval and start quiet background-check only
-                    if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
-                    startBackgroundCheck();
-                }
-                // If not isFirstLoad (called from loadNewData) — tab was already rendered by
-                // the caller via switchTab after this resolves. No auto-render here.
+                if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
+                const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
+                switchTab(activeTab);
             } catch(e) {
                 if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
                 document.getElementById('loading').style.display = 'block';
@@ -352,31 +335,6 @@
             } finally {
                 _loadLock = false;
             }
-        }
-
-        // Silently check whether a newer harvest has completed. Shows a banner but
-        // does NOT auto-update the display — user must click "Load new data".
-        function startBackgroundCheck() {
-            if (checkInterval) return;
-            checkInterval = setInterval(async () => {
-                try {
-                    const r = await fetch(`progress.json?t=${Date.now()}`);
-                    if (!r.ok) return;
-                    const p = await r.json();
-                    if ((p.status === 'sleeping' || p.status === 'done') && (p.ts || 0) > _dataLoadedAt) {
-                        document.getElementById('newDataBanner').style.display = 'flex';
-                    }
-                } catch(e) {}
-            }, 15000); // check every 15 s — low overhead, no rendering
-        }
-
-        async function loadNewData() {
-            document.getElementById('newDataBanner').style.display = 'none';
-            _lastUpdated = null; // force full re-render
-            await load();
-            // re-render the tab currently visible so the user sees the fresh data immediately
-            const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
-            switchTab(activeTab);
         }
 
         function setS(w) { document.getElementById('search').value = w; switchTab('posts'); }
@@ -779,7 +737,6 @@
 
         // ── Progress polling ──────────────────────────────────────────────────
         let progressInterval = null;
-        let checkInterval = null;
         function startProgressPolling() {
             if (progressInterval) return;
             // Record when we started polling so we don't trigger on a stale
@@ -793,13 +750,22 @@
                     document.getElementById('progressText').textContent = p.message||'...';
                     document.getElementById('progressBar').style.width = (p.pct||0)+'%';
                     document.getElementById('progressPct').textContent = (p.pct||0)+'%';
+                    if (p.stats) {
+                        const s = p.stats;
+                        let html = '';
+                        if (s.posts) html += `<div style="color:#aaa">${s.posts.toLocaleString()} posts collected</div>`;
+                        if (s.top_topics?.length) {
+                            html += `<div style="color:#c8a96e;margin-top:4px">Trending: ${s.top_topics.slice(0,6).map(t=>`${Array.isArray(t)?t[0]:t} <b>(${Array.isArray(t)?t[1]:''})` ).join(' &middot; ')}</div>`;
+                        }
+                        if (s.signals) html += `<div style="color:#e05;margin-top:4px">Signals — T4: <b>${s.signals.T4||0}</b> &middot; T3: <b>${s.signals.T3||0}</b> &middot; total: ${s.signals.total||0}</div>`;
+                        document.getElementById('progressStats').innerHTML = html;
+                    }
                     // Only trigger completion on a harvest that started AFTER we began polling.
                     // p.ts is the epoch-seconds timestamp written by the harvester.
                     if((p.status==='sleeping'||p.status==='done') && (p.ts||0) > pollStartedAt) {
                         clearInterval(progressInterval); progressInterval=null;
                         _lastUpdated = null; // force full re-render
                         await load();
-                        // load() calls startBackgroundCheck() internally after first render
                     }
                 } catch(e){}
             },800);
@@ -1516,15 +1482,13 @@
                 if(res.ok) {
                     if(loadInterval){    clearInterval(loadInterval);    loadInterval=null; }
                     if(progressInterval){clearInterval(progressInterval);progressInterval=null; }
-                    if(checkInterval){   clearInterval(checkInterval);   checkInterval=null; }
 
                     POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};LONGITUDINAL={};ARCS={};NARRATIVES={};
-                    _lastUpdated=null; _dataLoadedAt=0;
+                    _lastUpdated=null;
                     ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary','longitudinal','narratives','arcs','export','method'].forEach(id=>{
                         document.getElementById(id).innerHTML='';
                     });
                     document.getElementById('trends').innerHTML='';
-                    document.getElementById('newDataBanner').style.display='none';
                     document.getElementById('progressBar').style.width='0%';
                     document.getElementById('progressPct').textContent='0%';
                     document.getElementById('progressText').textContent='Restarting collection...';

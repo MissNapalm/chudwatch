@@ -25,8 +25,8 @@ import spacy
 BOARD = 'pol'
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(SCRIPT_DIR, 'chudwatch.db')
-ARCHIVE_THREADS = 600   # recent closed threads to pull from archive in addition to live catalog
-FETCH_WORKERS   = 8     # concurrent thread-fetch connections
+ARCHIVE_THREADS = 1400  # ~1 week of /pol/ archive (board closes ~150-200 threads/day)
+FETCH_WORKERS   = 16    # concurrent thread-fetch connections
 
 try:
     nlp = spacy.load("en_core_web_sm")
@@ -126,10 +126,12 @@ _GROUP_PATTERNS = {
 PORT = 8080
 refresh_event = threading.Event()
 
-def write_progress(status, current, total, posts, message):
+def write_progress(status, current, total, posts, message, stats=None):
     pct = int(current / total * 100) if total > 0 else 0
     data = {"status": status, "current": current, "total": total,
             "posts": posts, "pct": pct, "message": message, "ts": time.time()}
+    if stats:
+        data["stats"] = stats
     tmp = os.path.join(SCRIPT_DIR, 'progress.json.tmp')
     dest = os.path.join(SCRIPT_DIR, 'progress.json')
     with open(tmp, 'w') as f:
@@ -1928,8 +1930,25 @@ def save_and_analyze(posts):
         json.dump({"updated": now, "text": pulse_text or ""}, f)
     os.replace(pulse_tmp, pulse_dest)
 
-    # Analysis features
+    # --- Analysis with live progress stats -----------------------------------
+    n = len(posts)
+    top_topics_quick = [
+        [k, sum(1 for p in posts if _GROUP_PATTERNS[k].search((p.get('com') or '').lower()))]
+        for k in list(TOPIC_GROUPS.keys())
+    ]
+    top_topics_quick = sorted([t for t in top_topics_quick if t[1] > 0], key=lambda x: -x[1])[:10]
+    write_progress("analyzing", n, n, n,
+                   f"Analyzing {n:,} posts — computing signals...",
+                   stats={"posts": n, "top_topics": top_topics_quick})
+
     signal_results_raw = detect_signals(posts)
+    t3 = sum(1 for s in (signal_results_raw or []) if s.get('max_tier') == 3)
+    t4 = sum(1 for s in (signal_results_raw or []) if s.get('max_tier') == 4)
+    write_progress("analyzing", n, n, n,
+                   f"Running jargon, conspiracy, astroturf analysis...",
+                   stats={"posts": n, "top_topics": top_topics_quick,
+                          "signals": {"T3": t3, "T4": t4, "total": len(signal_results_raw or [])}})
+
     detect_jargon(posts)
     detect_conspiracies(posts)
     detect_memes(posts)

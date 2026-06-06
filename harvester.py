@@ -7,6 +7,8 @@ import json
 import html
 import threading
 import concurrent.futures
+import csv
+import io
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from datetime import datetime, timezone
 import sys
@@ -57,6 +59,7 @@ STOP_TOPICS = {
     'Clearly', 'Basically', 'Voting', 'Voted', 'Saying', 'Said', 'Means',
     'Learn', 'Learned', 'Learning', 'Main', 'Chang', 'Brown', 'Think',
     'Rump', 'Rumps', 'Mans', 'Euro', 'Euros',
+    'Keep', 'Keeps', 'Keeping', 'Kept',
     # HTML / URL garbage
     'Class', 'Href', 'Quotelink', 'Span', 'Quote', 'Quot', 'Br', 'Div',
     'Http', 'Https', 'Src', 'Alt', 'Img', 'Www', 'Com', 'Net', 'Org',
@@ -144,15 +147,97 @@ class _Handler(SimpleHTTPRequestHandler):
             self.send_header('Pragma', 'no-cache')
         super().end_headers()
 
+    def do_GET(self):
+        path = self.path.split('?')[0]
+        if path == '/export/posts.csv':
+            try:
+                with open(os.path.join(SCRIPT_DIR, 'posts.json')) as f:
+                    posts = json.load(f)
+            except Exception:
+                posts = []
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(['post_id','thread_id','name','time','country','country_name','board_flag','board_flag_name','comment'])
+            for p in posts:
+                writer.writerow([p.get('post_id',''), p.get('thread_id',''), p.get('name',''),
+                                  p.get('time',''), p.get('country',''), p.get('country_name',''),
+                                  p.get('board_flag',''), p.get('board_flag_name',''),
+                                  (p.get('comment','') or '').replace('\n',' ')])
+            data = buf.getvalue().encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/csv; charset=utf-8')
+            self.send_header('Content-Disposition', 'attachment; filename="posts.csv"')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        elif path == '/export/signals.csv':
+            try:
+                with open(os.path.join(SCRIPT_DIR, 'signals.json')) as f:
+                    sdata = json.load(f)
+                signals = sdata.get('signals', [])
+            except Exception:
+                signals = []
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(['post_id','thread_id','score','max_tier','categories','triggers','target_groups','ai_verdict','snippet'])
+            for s in signals:
+                writer.writerow([s.get('post_id',''), s.get('thread_id',''), s.get('score',''),
+                                  s.get('max_tier',''),
+                                  '|'.join(s.get('categories',[])),
+                                  '|'.join(s.get('triggers',[])),
+                                  '|'.join(s.get('target_groups',[])),
+                                  s.get('ai_verdict',''),
+                                  (s.get('snippet','') or '').replace('\n',' ')])
+            data = buf.getvalue().encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/csv; charset=utf-8')
+            self.send_header('Content-Disposition', 'attachment; filename="signals.csv"')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        else:
+            super().do_GET()
+
     def do_POST(self):
         if self.path == '/refresh':
-            _clear_generated_files()
+            _full_reset()
             refresh_event.set()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(b'{"ok":true}')
+        elif self.path == '/events':
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                action = data.get('action', 'add')
+                if action == 'add':
+                    conn = sqlite3.connect(DB_FILE)
+                    c = conn.cursor()
+                    c.execute('INSERT INTO events (event_date, title, description, created_at) VALUES (?,?,?,?)',
+                              (data.get('event_date',''), data.get('title',''), data.get('description',''), time.time()))
+                    conn.commit()
+                    conn.close()
+                elif action == 'delete':
+                    eid = int(data.get('id', 0))
+                    if eid:
+                        conn = sqlite3.connect(DB_FILE)
+                        c = conn.cursor()
+                        c.execute('DELETE FROM events WHERE id=?', (eid,))
+                        conn.commit()
+                        conn.close()
+                write_longitudinal(None)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(b'{"ok":true}')
+            except Exception as e:
+                self.send_error(400, str(e))
         else:
             self.send_error(404)
 
@@ -328,6 +413,22 @@ SIGNAL_PATTERNS = [
     (re.compile(pat, re.IGNORECASE), label, tier)
     for pat, label, tier in _RAW_PATTERNS
 ]
+
+# --- Target group detection --------------------------------------------------
+
+_TARGET_PATTERNS = {
+    'Jewish people':   re.compile(r'\b(jews?|kikes?|zionists?|israelis?|hebrews?|semit\w*|rothschild)\b', re.I),
+    'Black people':    re.compile(r'\b(blacks?|african[- ]american[s]?|negr[oe]s?)\b', re.I),
+    'Trans people':    re.compile(r'\b(trans(?:gender)?s?|trann[yi]e?s?|troons?|non[- ]binary)\b', re.I),
+    'Muslims':         re.compile(r'\b(muslims?|islam(?:ists?|ic)?|jihadis?t?s?|mosque)\b', re.I),
+    'Women':           re.compile(r'\b(wom[ae]n|females?|feminists?)\b', re.I),
+    'LGBTQ+':          re.compile(r'\b(gay[s]?|lesbian[s]?|homosexual[s]?|queers?|faggots?|f[a4]gs?)\b', re.I),
+    'Immigrants':      re.compile(r'\b(immigrants?|migrants?|illegals?|invaders?|foreigners?)\b', re.I),
+    'Politicians':     re.compile(r'\b(politicians?|democrats?|leftists?|globalists?|elites?)\b', re.I),
+}
+
+def _detect_targets(text):
+    return [label for label, pat in _TARGET_PATTERNS.items() if pat.search(text)]
 
 # --- Radicalization jargon tiers ---------------------------------------------
 
@@ -858,7 +959,6 @@ def detect_signals(posts):
                     if pat.search(text))
 
         # Snippet: 120 chars around first match for preview
-        first_match = SIGNAL_PATTERNS[0][0].search(text)
         for pat, _, _ in SIGNAL_PATTERNS:
             m = pat.search(text)
             if m:
@@ -867,15 +967,18 @@ def detect_signals(posts):
                 snippet = ('...' if start > 0 else '') + text[start:end] + ('...' if end < len(text) else '')
                 break
 
+        target_groups = _detect_targets(text)
+
         results.append({
-            "post_id":    p['no'],
-            "thread_id":  p.get('thread_id'),
-            "score":      score,
-            "max_tier":   max_tier,
-            "categories": list(dict.fromkeys(matched_categories)),  # deduped, ordered
-            "triggers":   list(dict.fromkeys(t.lower() for t in matched_triggers)),
-            "snippet":    snippet,
-            "comment":    text,
+            "post_id":      p['no'],
+            "thread_id":    p.get('thread_id'),
+            "score":        score,
+            "max_tier":     max_tier,
+            "categories":   list(dict.fromkeys(matched_categories)),  # deduped, ordered
+            "triggers":     list(dict.fromkeys(t.lower() for t in matched_triggers)),
+            "target_groups": target_groups,
+            "snippet":      snippet,
+            "comment":      text,
         })
 
     results.sort(key=lambda x: (-x['score'], -x['max_tier']))
@@ -894,6 +997,7 @@ def detect_signals(posts):
     t4 = sum(1 for r in results if r['max_tier'] == 4)
     t3 = sum(1 for r in results if r['max_tier'] == 3)
     print(f"[+] Signals: {len(results)} posts matched (T4={t4} operational, T3={t3} direct incitement)")
+    return results
 
 
 def detect_jargon(posts):
@@ -1251,6 +1355,10 @@ def detect_timeheat(posts):
     topic_hours  = {k: [0]*24 for k in TOPIC_GROUPS}
     topic_dow    = {k: [0]*7  for k in TOPIC_GROUPS}
 
+    signal_tier_by_hour    = [0] * 24   # sum of max signal tiers for posts in each hour
+    signal_post_count_by_hour = [0] * 24  # posts with any signal in each hour
+    t3t4_by_hour           = [0] * 24   # count of T3 or T4 signal posts per hour
+
     for p in posts:
         ts = p.get('time')
         if not ts:
@@ -1270,6 +1378,18 @@ def detect_timeheat(posts):
                 if pattern.search(text):
                     topic_hours[canonical][h] += 1
                     topic_dow[canonical][dow]  += 1
+            # Signal tier tracking
+            raw_text = clean_text(p.get('com', '') or '')
+            max_sig_tier = 0
+            for pat, label, tier in SIGNAL_PATTERNS:
+                if pat.search(raw_text):
+                    if tier > max_sig_tier:
+                        max_sig_tier = tier
+            if max_sig_tier > 0:
+                signal_post_count_by_hour[h] += 1
+                signal_tier_by_hour[h] += max_sig_tier
+            if max_sig_tier >= 3:
+                t3t4_by_hour[h] += 1
         except Exception:
             pass
 
@@ -1278,13 +1398,15 @@ def detect_timeheat(posts):
     topic_dow   = {k: v for k, v in topic_dow.items()   if any(v)}
 
     out = {
-        "updated":          utcnow(),
-        "live_by_hour":     live_hour,
-        "archive_by_hour":  archive_hour,
-        "live_by_dow":      live_dow,
-        "archive_by_dow":   archive_dow,
-        "topic_hours":      topic_hours,
-        "topic_dow":        topic_dow,
+        "updated":                    utcnow(),
+        "live_by_hour":               live_hour,
+        "archive_by_hour":            archive_hour,
+        "live_by_dow":                live_dow,
+        "archive_by_dow":             archive_dow,
+        "topic_hours":                topic_hours,
+        "topic_dow":                  topic_dow,
+        "t3t4_by_hour":               t3t4_by_hour,
+        "signal_avg_tier_by_hour":    [round(signal_tier_by_hour[h] / max(signal_post_count_by_hour[h], 1), 2) for h in range(24)],
     }
     dest = os.path.join(SCRIPT_DIR, 'timeheat.json')
     tmp  = dest + '.tmp'
@@ -1450,12 +1572,319 @@ def build_thread_summaries(catalog_threads, posts):
 
 # ----------------------------------------------------------------------------
 
+def detect_thread_arcs(posts):
+    """
+    Find threads that escalate from low to high signal tier over their lifetime.
+    Writes arcs.json.
+    """
+    # Group posts by thread_id, sorted by post_id (chronological)
+    thread_map = collections.defaultdict(list)
+    for p in posts:
+        tid = p.get('thread_id')
+        if tid:
+            thread_map[tid].append(p)
+    for tid in thread_map:
+        thread_map[tid].sort(key=lambda p: p.get('no', 0))
+
+    def _post_tier(p):
+        text = clean_text(p.get('com', '') or '')
+        max_tier = 0
+        for pat, label, tier in SIGNAL_PATTERNS:
+            if pat.search(text):
+                if tier > max_tier:
+                    max_tier = tier
+        return max_tier
+
+    arcs = []
+    for tid, tposts in thread_map.items():
+        if len(tposts) < 6:
+            continue
+        third = max(1, len(tposts) // 3)
+        early_posts = tposts[:third]
+        late_posts  = tposts[-third:]
+
+        early_tiers = [_post_tier(p) for p in early_posts]
+        late_tiers  = [_post_tier(p) for p in late_posts]
+
+        early_tier = sum(early_tiers) / max(len(early_tiers), 1)
+        late_tier  = sum(late_tiers)  / max(len(late_tiers),  1)
+
+        if late_tier >= 2.0 and late_tier > early_tier + 0.5:
+            peak_posts = [p for p in tposts if _post_tier(p) >= 3]
+            all_cats = []
+            for p in tposts:
+                text = clean_text(p.get('com', '') or '')
+                for pat, label, tier in SIGNAL_PATTERNS:
+                    if pat.search(text) and label not in all_cats:
+                        all_cats.append(label)
+
+            # OP snippet
+            op = tposts[0]
+            op_snippet = clean_text(op.get('com', '') or '')[:200]
+
+            escalation = round(late_tier - early_tier, 2)
+            arcs.append({
+                "thread_id":   tid,
+                "post_count":  len(tposts),
+                "early_tier":  round(early_tier, 2),
+                "late_tier":   round(late_tier, 2),
+                "escalation":  escalation,
+                "peak_posts":  len(peak_posts),
+                "categories":  all_cats[:8],
+                "op_snippet":  op_snippet,
+            })
+
+    # Sort by escalation * peak_post_count
+    arcs.sort(key=lambda a: -(a['escalation'] * max(a['peak_posts'], 1)))
+    arcs = arcs[:50]
+
+    out = {"updated": utcnow(), "count": len(arcs), "arcs": arcs}
+    dest = os.path.join(SCRIPT_DIR, 'arcs.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Thread arcs: {len(arcs)} escalating threads detected")
+
+
+def detect_narratives(posts):
+    """
+    For each topic group, discover what other topics and signal categories co-occur.
+    Writes narratives.json.
+    """
+    # Build per-post topic and signal category sets
+    post_topics   = []
+    post_sigcats  = []
+
+    for p in posts:
+        raw = p.get('com', '')
+        if not raw:
+            continue
+        text_lower = raw.lower()
+        clean = clean_text(raw)
+        topics_present = [canonical for canonical, pat in _GROUP_PATTERNS.items()
+                          if pat.search(text_lower)]
+        sig_cats = []
+        for pat, label, tier in SIGNAL_PATTERNS:
+            if pat.search(clean) and label not in sig_cats:
+                sig_cats.append(label)
+        post_topics.append(topics_present)
+        post_sigcats.append(sig_cats)
+
+    # Count per topic
+    topic_post_count = collections.Counter()
+    for topics in post_topics:
+        for t in topics:
+            topic_post_count[t] += 1
+
+    top_topics = [t for t, _ in topic_post_count.most_common(30)]
+
+    # Build co-occurrence and signal profiles
+    narratives = []
+    for topic in top_topics:
+        total = topic_post_count[topic]
+        co_count   = collections.Counter()
+        sig_count  = collections.Counter()
+
+        for topics, sig_cats in zip(post_topics, post_sigcats):
+            if topic not in topics:
+                continue
+            for other in topics:
+                if other != topic:
+                    co_count[other] += 1
+            for cat in sig_cats:
+                sig_count[cat] += 1
+
+        co_topics = [
+            {"topic": t, "count": n, "pct": round(n / total * 100, 1)}
+            for t, n in co_count.most_common(8)
+        ]
+        signal_categories = [
+            {"category": c, "count": n, "pct": round(n / total * 100, 1)}
+            for c, n in sig_count.most_common(8)
+        ]
+
+        narratives.append({
+            "topic":             topic,
+            "total_posts":       total,
+            "co_topics":         co_topics,
+            "signal_categories": signal_categories,
+        })
+
+    out = {"updated": utcnow(), "narratives": narratives}
+    dest = os.path.join(SCRIPT_DIR, 'narratives.json')
+    tmp  = dest + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(out, f)
+    os.replace(tmp, dest)
+    print(f"[+] Narratives: {len(narratives)} topic narrative profiles written")
+
+
+def write_longitudinal(harvest_id):
+    """
+    Read all harvest records from DB and write longitudinal.json.
+    harvest_id may be None (called from event endpoint).
+    """
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+
+        # All harvests
+        c.execute('SELECT id, started_at, completed_at, post_count, live_count, archive_count FROM harvests ORDER BY id')
+        rows = c.fetchall()
+
+        # Events
+        c.execute('SELECT id, event_date, title, description, created_at FROM events ORDER BY event_date, id')
+        event_rows = c.fetchall()
+
+        if not rows:
+            conn.close()
+            out = {
+                "updated": utcnow(),
+                "harvest_count": 0,
+                "harvests": [],
+                "labels": [],
+                "top_topics": [],
+                "topic_series": {},
+                "signal_series": {},
+                "events": [],
+            }
+            dest = os.path.join(SCRIPT_DIR, 'longitudinal.json')
+            tmp  = dest + '.tmp'
+            with open(tmp, 'w') as f:
+                json.dump(out, f)
+            os.replace(tmp, dest)
+            return
+
+        harvest_ids = [r[0] for r in rows]
+        last_50_ids = harvest_ids[-50:]
+        last_50_rows = [r for r in rows if r[0] in set(last_50_ids)]
+
+        labels = []
+        for r in last_50_rows:
+            ts = r[1]  # started_at
+            try:
+                labels.append(datetime.utcfromtimestamp(ts).strftime('%m-%d %H:%M'))
+            except Exception:
+                labels.append(str(ts))
+
+        # Topic series
+        c.execute('SELECT harvest_id, topic, count FROM harvest_topics WHERE harvest_id IN ({})'.format(
+            ','.join('?' * len(last_50_ids))), last_50_ids)
+        topic_rows = c.fetchall()
+        topic_totals = collections.Counter()
+        topic_by_harvest = collections.defaultdict(dict)
+        for hid, topic, count in topic_rows:
+            topic_totals[topic] += count
+            topic_by_harvest[hid][topic] = count
+
+        top_topics = [t for t, _ in topic_totals.most_common(10)]
+        topic_series = {}
+        for topic in top_topics:
+            topic_series[topic] = [topic_by_harvest[hid].get(topic, 0) for hid in last_50_ids]
+
+        # Signal series
+        c.execute('SELECT harvest_id, tier, category, count FROM harvest_signals WHERE harvest_id IN ({})'.format(
+            ','.join('?' * len(last_50_ids))), last_50_ids)
+        sig_rows = c.fetchall()
+        sig_by_harvest = collections.defaultdict(lambda: collections.defaultdict(int))
+        for hid, tier, category, count in sig_rows:
+            sig_by_harvest[hid][tier] += count
+
+        signal_series = {}
+        for tier in [1, 2, 3, 4]:
+            signal_series[f'T{tier}'] = [sig_by_harvest[hid].get(tier, 0) for hid in last_50_ids]
+
+        conn.close()
+
+        events = [
+            {"id": r[0], "event_date": r[1], "title": r[2], "description": r[3], "created_at": r[4]}
+            for r in event_rows
+        ]
+
+        harvests_out = [
+            {"id": r[0], "started_at": r[1], "completed_at": r[2],
+             "post_count": r[3], "live_count": r[4], "archive_count": r[5]}
+            for r in last_50_rows
+        ]
+
+        out = {
+            "updated":       utcnow(),
+            "harvest_count": len(rows),
+            "harvests":      harvests_out,
+            "labels":        labels,
+            "top_topics":    top_topics,
+            "topic_series":  topic_series,
+            "signal_series": signal_series,
+            "events":        events,
+        }
+        dest = os.path.join(SCRIPT_DIR, 'longitudinal.json')
+        tmp  = dest + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(out, f)
+        os.replace(tmp, dest)
+        print(f"[+] Longitudinal: {len(rows)} total harvests, {len(top_topics)} topics tracked")
+    except Exception as e:
+        print(f"[!] write_longitudinal failed: {e}")
+
+
+def _record_harvest_stats(harvest_id, posts, signal_results):
+    """
+    Record per-harvest topic and signal counts in the DB, then write longitudinal.json.
+    """
+    if harvest_id is None:
+        return
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+
+        # Topic counts
+        raw_comments = [p.get('com', '') for p in posts if p.get('com')]
+        texts_lower  = [clean_text(t).lower() for t in raw_comments]
+        for canonical, pat in _GROUP_PATTERNS.items():
+            count = sum(1 for tl in texts_lower if pat.search(tl))
+            if count > 0:
+                c.execute('INSERT OR REPLACE INTO harvest_topics (harvest_id, topic, count) VALUES (?,?,?)',
+                          (harvest_id, canonical, count))
+
+        # Signal counts per tier and category
+        tier_cat_counts = collections.defaultdict(int)
+        for s in signal_results:
+            tier = s.get('max_tier', 0)
+            for cat in s.get('categories', []):
+                tier_cat_counts[(tier, cat)] += 1
+
+        for (tier, cat), count in tier_cat_counts.items():
+            c.execute('INSERT OR REPLACE INTO harvest_signals (harvest_id, tier, category, count) VALUES (?,?,?,?)',
+                      (harvest_id, tier, cat, count))
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[!] _record_harvest_stats failed: {e}")
+
+    write_longitudinal(harvest_id)
+
+
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS posts
                  (post_id INTEGER PRIMARY KEY, thread_id INTEGER, name TEXT,
                   time TEXT, comment TEXT, timestamp DATETIME)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS harvests
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  started_at REAL, completed_at REAL,
+                  post_count INTEGER, live_count INTEGER, archive_count INTEGER)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS harvest_topics
+                 (harvest_id INTEGER, topic TEXT, count INTEGER,
+                  PRIMARY KEY (harvest_id, topic))''')
+    c.execute('''CREATE TABLE IF NOT EXISTS harvest_signals
+                 (harvest_id INTEGER, tier INTEGER, category TEXT, count INTEGER,
+                  PRIMARY KEY (harvest_id, tier, category))''')
+    c.execute('''CREATE TABLE IF NOT EXISTS events
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  event_date TEXT, title TEXT, description TEXT, created_at REAL)''')
     conn.commit()
     conn.close()
 
@@ -1500,7 +1929,7 @@ def save_and_analyze(posts):
     os.replace(pulse_tmp, pulse_dest)
 
     # Analysis features
-    detect_signals(posts)
+    signal_results_raw = detect_signals(posts)
     detect_jargon(posts)
     detect_conspiracies(posts)
     detect_memes(posts)
@@ -1510,6 +1939,9 @@ def save_and_analyze(posts):
     detect_timeheat(posts)
     detect_tripcodes(posts)
     detect_cooccurrence(posts)
+    detect_thread_arcs(posts)
+    detect_narratives(posts)
+    _record_harvest_stats(_current_harvest_id, posts, signal_results_raw or [])
 
     # Write ALL posts from the current batch (include flag fields for the viewer)
     all_posts = [
@@ -1657,21 +2089,31 @@ _GENERATED_FILES = (
     'signals.json', 'jargon.json', 'conspiracies.json',
     'threads.json', 'memes.json', 'astroturf.json', 'pulse.json',
     'trans.json', 'flags.json', 'timeheat.json', 'tripcodes.json', 'cooccur.json',
+    'arcs.json', 'narratives.json', 'longitudinal.json',
 )
 
 def _clear_generated_files():
+    """Delete only JSON files — DB persists across restarts."""
     for fname in _GENERATED_FILES:
         try:
             os.remove(os.path.join(SCRIPT_DIR, fname))
         except FileNotFoundError:
             pass
+    print("[*] Cleared JSON cache (DB preserved)")
+
+def _full_reset():
+    """Delete DB AND all JSON files — called from /refresh endpoint."""
+    _clear_generated_files()
     try:
         os.remove(DB_FILE)
     except FileNotFoundError:
         pass
-    print("[*] Cleared all cached data")
+    print("[*] Full reset: DB and JSON cache cleared")
+
+_current_harvest_id = None
 
 def run_harvest(archive_count=ARCHIVE_THREADS):
+    global _current_harvest_id
     threading.Thread(target=_start_server, daemon=True).start()
     print(f"[*] ChudWatch viewer → http://localhost:{PORT}/viewer.html")
     print(f"[*] Harvest mode: live threads + {archive_count} archive threads")
@@ -1696,6 +2138,13 @@ def run_harvest(archive_count=ARCHIVE_THREADS):
         try:
             write_progress("starting", 0, 0, 0, "Fetching /pol/ catalog...")
             print(f"[*] Starting harvest on /{BOARD}/...")
+            # Record harvest start
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute('INSERT INTO harvests (started_at, post_count, live_count, archive_count) VALUES (?,0,0,0)', (time.time(),))
+            _current_harvest_id = c.lastrowid
+            conn.commit()
+            conn.close()
 
             # Live catalog
             url = f"https://a.4cdn.org/{BOARD}/catalog.json"
@@ -1755,6 +2204,17 @@ def run_harvest(archive_count=ARCHIVE_THREADS):
                            f"Analyzing {len(all_posts):,} posts for trending topics...")
             save_and_analyze(all_posts)
             save_thread_summaries(catalog_threads, all_posts)
+
+            # Update harvest record with completion stats
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute('UPDATE harvests SET completed_at=?, post_count=?, live_count=?, archive_count=? WHERE id=?',
+                      (time.time(), len(all_posts),
+                       len([p for p in all_posts if p.get('source') == 'live']),
+                       len([p for p in all_posts if p.get('source') == 'archive']),
+                       _current_harvest_id))
+            conn.commit()
+            conn.close()
 
             write_progress("sleeping", total, total, len(all_posts),
                            f"Done — {len(all_posts):,} posts indexed. Next refresh in 5 min.")

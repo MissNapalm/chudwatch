@@ -223,38 +223,48 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active"  data-tab="posts"       onclick="switchTab('posts')">Posts</button>
-            <button class="tab-btn"         data-tab="threads"     onclick="switchTab('threads')">Threads</button>
-            <button class="tab-btn"         data-tab="bubbles"     onclick="switchTab('bubbles')">Bubbles</button>
-            <button class="tab-btn"         data-tab="memes"       onclick="switchTab('memes')">Memes</button>
-            <button class="tab-btn danger"  data-tab="signals"     onclick="switchTab('signals')">⚠ Signals</button>
-            <button class="tab-btn danger"  data-tab="jargon"      onclick="switchTab('jargon')">Jargon Pipeline</button>
-            <button class="tab-btn danger"  data-tab="conspiracy"  onclick="switchTab('conspiracy')">Conspiracy Map</button>
-            <button class="tab-btn danger"  data-tab="astroturf"   onclick="switchTab('astroturf')">🤖 Astroturf</button>
-            <button class="tab-btn danger"  data-tab="trans"       onclick="switchTab('trans')">🏳️‍⚧️ Anti-Trans</button>
-            <button class="tab-btn"         data-tab="countries"   onclick="switchTab('countries')">🌍 Countries</button>
-            <button class="tab-btn"         data-tab="boardflags"  onclick="switchTab('boardflags')">🏴 Board Flags</button>
-            <button class="tab-btn"         data-tab="patterns"    onclick="switchTab('patterns')">📊 Patterns</button>
-            <button class="tab-btn"         data-tab="aisummary"   onclick="switchTab('aisummary')">✨ AI Summary</button>
+            <button class="tab-btn active"  data-tab="posts"        onclick="switchTab('posts')">Posts</button>
+            <button class="tab-btn"         data-tab="threads"      onclick="switchTab('threads')">Threads</button>
+            <button class="tab-btn"         data-tab="patterns"     onclick="switchTab('patterns')">📊 Patterns</button>
+            <button class="tab-btn"         data-tab="longitudinal" onclick="switchTab('longitudinal')">📈 Longitudinal</button>
+            <button class="tab-btn"         data-tab="narratives"   onclick="switchTab('narratives')">🎯 Narratives</button>
+            <button class="tab-btn"         data-tab="arcs"         onclick="switchTab('arcs')">🧵 Arcs</button>
+            <button class="tab-btn"         data-tab="bubbles"      onclick="switchTab('bubbles')">Bubbles</button>
+            <button class="tab-btn"         data-tab="memes"        onclick="switchTab('memes')">Memes</button>
+            <button class="tab-btn danger"  data-tab="signals"      onclick="switchTab('signals')">⚠ Signals</button>
+            <button class="tab-btn danger"  data-tab="jargon"       onclick="switchTab('jargon')">Jargon Pipeline</button>
+            <button class="tab-btn danger"  data-tab="conspiracy"   onclick="switchTab('conspiracy')">Conspiracy Map</button>
+            <button class="tab-btn danger"  data-tab="astroturf"    onclick="switchTab('astroturf')">🤖 Astroturf</button>
+            <button class="tab-btn danger"  data-tab="trans"        onclick="switchTab('trans')">🏳️‍⚧️ Anti-Trans</button>
+            <button class="tab-btn"         data-tab="countries"    onclick="switchTab('countries')">🌍 Countries</button>
+            <button class="tab-btn"         data-tab="boardflags"   onclick="switchTab('boardflags')">🏴 Board Flags</button>
+            <button class="tab-btn"         data-tab="aisummary"    onclick="switchTab('aisummary')">✨ AI Summary</button>
+            <button class="tab-btn"         data-tab="export"       onclick="switchTab('export')">📥 Export</button>
+            <button class="tab-btn"         data-tab="method"       onclick="switchTab('method')">📖 Method</button>
         </div>
 
-        <div id="posts"      class="tab-content active"></div>
-        <div id="threads"    class="tab-content"></div>
-        <div id="bubbles"    class="tab-content"></div>
-        <div id="memes"      class="tab-content"></div>
-        <div id="signals"    class="tab-content"></div>
-        <div id="jargon"     class="tab-content"></div>
-        <div id="conspiracy" class="tab-content"></div>
-        <div id="astroturf"  class="tab-content"></div>
-        <div id="trans"      class="tab-content"></div>
-        <div id="countries"  class="tab-content"></div>
-        <div id="boardflags" class="tab-content"></div>
-        <div id="patterns"   class="tab-content"></div>
-        <div id="aisummary"  class="tab-content"></div>
+        <div id="posts"        class="tab-content active"></div>
+        <div id="threads"      class="tab-content"></div>
+        <div id="patterns"     class="tab-content"></div>
+        <div id="longitudinal" class="tab-content"></div>
+        <div id="narratives"   class="tab-content"></div>
+        <div id="arcs"         class="tab-content"></div>
+        <div id="bubbles"      class="tab-content"></div>
+        <div id="memes"        class="tab-content"></div>
+        <div id="signals"      class="tab-content"></div>
+        <div id="jargon"       class="tab-content"></div>
+        <div id="conspiracy"   class="tab-content"></div>
+        <div id="astroturf"    class="tab-content"></div>
+        <div id="trans"        class="tab-content"></div>
+        <div id="countries"    class="tab-content"></div>
+        <div id="boardflags"   class="tab-content"></div>
+        <div id="aisummary"    class="tab-content"></div>
+        <div id="export"       class="tab-content"></div>
+        <div id="method"       class="tab-content"></div>
     </div>
 
     <script>
-        let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [], ASTROTURF = {}, PULSE = {}, TRANS = {}, FLAGS = {}, TIMEHEAT = {}, TRIPCODES = {}, COOCCUR = {};
+        let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [], ASTROTURF = {}, PULSE = {}, TRANS = {}, FLAGS = {}, TIMEHEAT = {}, TRIPCODES = {}, COOCCUR = {}, LONGITUDINAL = {}, ARCS = {}, NARRATIVES = {};
         let _lastUpdated = null;   // null = never rendered; set after first render; frozen until user loads new data
         let _dataLoadedAt = 0;     // epoch-seconds when we last rendered; used to detect newer harvests
         let _loadLock = false;     // prevent concurrent load() calls
@@ -272,7 +282,9 @@
                                 jargon: renderJargon, conspiracy: renderConspiracy,
                                 astroturf: renderAstroturf, trans: renderTrans,
                                 countries: renderCountries, boardflags: renderBoardFlags,
-                                patterns: renderPatterns, aisummary: renderAiSummary };
+                                patterns: renderPatterns, aisummary: renderAiSummary,
+                                longitudinal: renderLongitudinal, narratives: renderNarratives,
+                                arcs: renderArcs, export: renderExport, method: renderMethod };
             (renderers[tab] || render)();
         }
 
@@ -282,7 +294,7 @@
             _loadLock = true;
             try {
                 const t = Date.now();
-                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes','astroturf','pulse','trans','flags','timeheat','tripcodes','cooccur'];
+                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes','astroturf','pulse','trans','flags','timeheat','tripcodes','cooccur','longitudinal','arcs','narratives'];
                 const responses = await Promise.all(files.map(f => fetch(`${f}.json?t=${t}`)));
                 if (!responses[0].ok || !responses[1].ok) throw new Error('Core data missing');
 
@@ -303,6 +315,9 @@
                 TIMEHEAT     = responses[12].ok ? await responses[12].json().catch(()=>({})) : {};
                 TRIPCODES    = responses[13].ok ? await responses[13].json().catch(()=>({})) : {};
                 COOCCUR      = responses[14].ok ? await responses[14].json().catch(()=>({})) : {};
+                LONGITUDINAL = responses[15].ok ? await responses[15].json().catch(()=>({})) : {};
+                ARCS         = responses[16].ok ? await responses[16].json().catch(()=>({})) : {};
+                NARRATIVES   = responses[17].ok ? await responses[17].json().catch(()=>({})) : {};
 
                 const newUpdated = JARGON.updated || met.updated || '';
                 const isFirstLoad = _lastUpdated === null;
@@ -509,6 +524,7 @@
                     const meta = TIER_META[s.max_tier] || TIER_META[3];
                     const cats = (s.categories||[]).map(c=>`<span class="cat-tag" style="${s.max_tier>=3?'background:#f5e6e6;border-color:#c44':''}${s.max_tier>=4?'background:#f0e0e0;border-color:#900':''}">${esc(c)}</span>`).join('');
                     const trigs = (s.triggers||[]).map(t=>`<span class="trigger-tag">${esc(t)}</span>`).join('');
+                    const tgtTags = (s.target_groups||[]).map(g=>`<span style="background:#fff3cd;border:1px solid #c9a800;color:#6b5100;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:3px;margin-right:4px">${esc(g)}</span>`).join('');
                     let snip = esc(s.snippet||s.comment||'');
                     (s.triggers||[]).forEach(t => {
                         snip = snip.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
@@ -524,6 +540,7 @@
                             <span class="signal-tier ${meta.badge}">TIER ${s.max_tier}</span>${verdBadge}${cats}${trigs}
                             <a href="https://boards.4channel.org/pol/thread/${s.thread_id}#p${s.post_id}" target="_blank" rel="noopener" style="float:right;font-size:11px">[View]</a>
                         </div>
+                        ${tgtTags ? `<div style="margin-bottom:5px">${tgtTags}</div>` : ''}
                         ${aiReason}
                         <div style="white-space:pre-wrap;line-height:1.5;margin-top:4px">${snip}</div>
                     </div>`;
@@ -954,6 +971,26 @@
 
             let html = `<div style="font-size:12px;color:#888;margin-bottom:16px">Patterns extracted from live + archive post corpus</div>`;
 
+            // ── Extreme Posts by Hour (T3/T4) ──
+            const t3t4 = TIMEHEAT.t3t4_by_hour;
+            if (t3t4 && t3t4.some(v => v > 0)) {
+                const maxT = Math.max(...t3t4, 1);
+                html += `<div class="pat-section">
+                    <h3>When It Gets Most Extreme — T3/T4 Incitement Posts by Hour (UTC)</h3>
+                    <div class="pat-desc">Count of Tier 3 (direct incitement) and Tier 4 (operational/martyrdom) signal posts per UTC hour. Peaks indicate when the most extreme rhetoric is posted.</div>
+                    <div style="display:flex;gap:3px;align-items:flex-end;height:70px;margin-bottom:4px">`;
+                for (let h = 0; h < 24; h++) {
+                    const pct = Math.round(t3t4[h] / maxT * 100);
+                    const barH = Math.max(2, Math.round(pct * 0.65));
+                    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center" title="Hour ${h}:00 UTC — ${t3t4[h]} T3/T4 posts">
+                        <div style="width:100%;height:${barH}px;background:#7b0000;border-radius:2px 2px 0 0"></div>
+                    </div>`;
+                }
+                html += `</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#999;margin-bottom:4px">`;
+                for (let h = 0; h < 24; h += 3) html += `<span>${h}h</span>`;
+                html += `</div></div>`;
+            }
+
             // ── Hourly heatmap ──
             if (TIMEHEAT.live_by_hour) {
                 const liveH = TIMEHEAT.live_by_hour;
@@ -1094,6 +1131,383 @@
             el.innerHTML = html;
         }
 
+        // ── Longitudinal ──────────────────────────────────────────────────────
+        function renderLongitudinal() {
+            const el = document.getElementById('longitudinal');
+            const L = LONGITUDINAL;
+            if (!L.harvest_count) {
+                el.innerHTML = '<div class="muted">No longitudinal data yet — needs multiple harvests to build a time series. Data will appear after the second harvest cycle completes.</div>';
+                return;
+            }
+
+            const firstTs = L.harvests && L.harvests.length ? L.harvests[0].started_at : 0;
+            const firstDate = firstTs ? new Date(firstTs * 1000).toLocaleDateString() : 'unknown';
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:12px">
+                <strong>${L.harvest_count}</strong> harvests tracked since ${firstDate} &nbsp;·&nbsp; Updated ${L.updated||''}
+            </div>`;
+
+            // ── Topic line chart ──
+            const labels = L.labels || [];
+            const topTopics = (L.top_topics || []).slice(0, 6);
+            const topicSeries = L.topic_series || {};
+
+            if (labels.length >= 2 && topTopics.length) {
+                const colors = ['#0f0c5d','#8b0000','#cc5500','#008855','#9900cc','#cc8800'];
+                const w = Math.min(el.clientWidth || 960, 960) - 30;
+                const h = 220;
+                const padL = 42, padR = 10, padT = 16, padB = 36;
+                const chartW = w - padL - padR;
+                const chartH = h - padT - padB;
+
+                // Compute max across all series
+                let maxVal = 1;
+                topTopics.forEach(t => {
+                    const s = topicSeries[t] || [];
+                    s.forEach(v => { if (v > maxVal) maxVal = v; });
+                });
+
+                const xScale = i => padL + (i / Math.max(labels.length - 1, 1)) * chartW;
+                const yScale = v => padT + chartH - (v / maxVal) * chartH;
+
+                let svg = `<svg width="${w}" height="${h}" style="display:block;margin-bottom:12px;overflow:visible">`;
+                // Y gridlines
+                for (let i = 0; i <= 4; i++) {
+                    const y = padT + (chartH / 4) * i;
+                    const val = Math.round(maxVal * (1 - i / 4));
+                    svg += `<line x1="${padL}" y1="${y}" x2="${padL+chartW}" y2="${y}" stroke="#e8e0d4" stroke-width="1"/>`;
+                    svg += `<text x="${padL-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${val}</text>`;
+                }
+                // Lines
+                topTopics.forEach((topic, ti) => {
+                    const series = topicSeries[topic] || [];
+                    if (!series.length) return;
+                    const pts = series.map((v, i) => `${xScale(i)},${yScale(v)}`).join(' ');
+                    svg += `<polyline points="${pts}" fill="none" stroke="${colors[ti % colors.length]}" stroke-width="2" stroke-linejoin="round"/>`;
+                    // Dot at last point
+                    const last = series.length - 1;
+                    svg += `<circle cx="${xScale(last)}" cy="${yScale(series[last])}" r="3" fill="${colors[ti % colors.length]}"/>`;
+                });
+                // X axis labels (every ~5 harvests)
+                const step = Math.max(1, Math.floor(labels.length / 8));
+                labels.forEach((lb, i) => {
+                    if (i % step !== 0 && i !== labels.length - 1) return;
+                    svg += `<text x="${xScale(i)}" y="${padT + chartH + 14}" text-anchor="middle" font-size="9" fill="#999">${esc(lb)}</text>`;
+                });
+                svg += `</svg>`;
+
+                // Legend
+                const legend = topTopics.map((t, i) =>
+                    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px;font-size:12px">
+                        <span style="width:16px;height:3px;background:${colors[i % colors.length]};display:inline-block;border-radius:2px"></span>${esc(t)}
+                    </span>`
+                ).join('');
+
+                html += `<div class="pat-section">
+                    <h3>Topic Activity Over Time</h3>
+                    <div class="pat-desc">Post counts per harvest cycle for the top topics. Shows which narratives are growing or fading.</div>
+                    ${svg}
+                    <div style="margin-top:4px;flex-wrap:wrap;display:flex">${legend}</div>
+                </div>`;
+            }
+
+            // ── Signal tier bar chart ──
+            const sigSeries = L.signal_series || {};
+            if (labels.length >= 2 && Object.keys(sigSeries).length) {
+                const tierColors = { T1:'#cc8800', T2:'#cc4400', T3:'#8b0000', T4:'#4a0000' };
+                const tiers = ['T1','T2','T3','T4'];
+                const w2 = Math.min(el.clientWidth || 960, 960) - 30;
+                const h2 = 150;
+                const padL2 = 42, padR2 = 10, padT2 = 10, padB2 = 36;
+                const chartW2 = w2 - padL2 - padR2;
+                const chartH2 = h2 - padT2 - padB2;
+
+                let maxSig = 1;
+                tiers.forEach(t => { (sigSeries[t] || []).forEach(v => { if (v > maxSig) maxSig = v; }); });
+
+                const xS = i => padL2 + (i / Math.max(labels.length - 1, 1)) * chartW2;
+                const yS = v => padT2 + chartH2 - (v / maxSig) * chartH2;
+
+                let svg2 = `<svg width="${w2}" height="${h2}" style="display:block;margin-bottom:8px;overflow:visible">`;
+                for (let i = 0; i <= 3; i++) {
+                    const y = padT2 + (chartH2 / 3) * i;
+                    svg2 += `<line x1="${padL2}" y1="${y}" x2="${padL2+chartW2}" y2="${y}" stroke="#e8e0d4" stroke-width="1"/>`;
+                    svg2 += `<text x="${padL2-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#999">${Math.round(maxSig*(1-i/3))}</text>`;
+                }
+                tiers.forEach(t => {
+                    const s = sigSeries[t] || [];
+                    if (!s.length) return;
+                    const pts = s.map((v, i) => `${xS(i)},${yS(v)}`).join(' ');
+                    svg2 += `<polyline points="${pts}" fill="none" stroke="${tierColors[t]}" stroke-width="1.5" stroke-dasharray="${t==='T1'?'4,2':t==='T2'?'':''}" stroke-linejoin="round"/>`;
+                });
+                const step2 = Math.max(1, Math.floor(labels.length / 8));
+                labels.forEach((lb, i) => {
+                    if (i % step2 !== 0 && i !== labels.length - 1) return;
+                    svg2 += `<text x="${xS(i)}" y="${padT2 + chartH2 + 14}" text-anchor="middle" font-size="9" fill="#999">${esc(lb)}</text>`;
+                });
+                svg2 += `</svg>`;
+
+                const legend2 = tiers.map(t =>
+                    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:12px">
+                        <span style="width:16px;height:3px;background:${tierColors[t]};display:inline-block;border-radius:2px"></span>${t}
+                    </span>`
+                ).join('');
+
+                html += `<div class="pat-section">
+                    <h3>Signal Tier Counts Over Time</h3>
+                    <div class="pat-desc">Posts per signal tier per harvest. Rising T3/T4 lines indicate escalating radicalization rhetoric.</div>
+                    ${svg2}
+                    <div style="display:flex;flex-wrap:wrap">${legend2}</div>
+                </div>`;
+            }
+
+            // ── Event annotation ──
+            const events = L.events || [];
+            html += `<div class="pat-section">
+                <h3>Research Event Annotations</h3>
+                <div class="pat-desc">Annotate significant real-world events to correlate with data spikes.</div>`;
+
+            if (events.length) {
+                html += `<div style="margin-bottom:14px">`;
+                events.forEach(ev => {
+                    html += `<div style="display:flex;align-items:baseline;gap:10px;padding:8px 12px;background:#f7f3e9;border:1px solid #d3b49f;border-radius:4px;margin-bottom:6px;font-size:13px">
+                        <span style="color:#888;font-size:11px;white-space:nowrap;min-width:80px">${esc(ev.event_date||'')}</span>
+                        <span style="font-weight:bold;color:#0f0c5d">${esc(ev.title||'')}</span>
+                        <span style="color:#555;flex:1">${esc(ev.description||'')}</span>
+                        <button onclick="deleteEvent(${ev.id})" style="background:#8b0000;color:#fff;border:none;padding:2px 8px;border-radius:3px;cursor:pointer;font-size:11px">Delete</button>
+                    </div>`;
+                });
+                html += `</div>`;
+            } else {
+                html += `<div class="muted" style="margin-bottom:12px">No events annotated yet.</div>`;
+            }
+
+            html += `<div style="background:#f7f3e9;border:1px solid #d3b49f;border-radius:4px;padding:14px">
+                <div style="font-size:13px;font-weight:bold;color:#0f0c5d;margin-bottom:10px">Add Event</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+                    <div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Date</label>
+                        <input type="date" id="evDate" style="padding:6px 8px;border:1px solid #d3b49f;border-radius:4px;font-size:13px"></div>
+                    <div style="flex:0 0 180px"><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Title</label>
+                        <input type="text" id="evTitle" placeholder="e.g. Election result" style="width:100%;padding:6px 8px;border:1px solid #d3b49f;border-radius:4px;font-size:13px"></div>
+                    <div style="flex:1;min-width:200px"><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Description</label>
+                        <input type="text" id="evDesc" placeholder="Optional notes" style="width:100%;padding:6px 8px;border:1px solid #d3b49f;border-radius:4px;font-size:13px"></div>
+                    <button onclick="addEvent()" style="background:#0f0c5d;color:#fff;border:none;padding:7px 16px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold">Add</button>
+                </div>
+            </div>
+            </div>`;
+
+            el.innerHTML = html;
+        }
+
+        async function addEvent() {
+            const date  = document.getElementById('evDate').value;
+            const title = document.getElementById('evTitle').value.trim();
+            const desc  = document.getElementById('evDesc').value.trim();
+            if (!date || !title) { alert('Date and title are required.'); return; }
+            try {
+                await fetch('/events', { method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({action:'add', event_date:date, title, description:desc}) });
+                document.getElementById('evDate').value = '';
+                document.getElementById('evTitle').value = '';
+                document.getElementById('evDesc').value = '';
+                // Reload longitudinal data and re-render
+                const r = await fetch(`longitudinal.json?t=${Date.now()}`);
+                if (r.ok) LONGITUDINAL = await r.json();
+                renderLongitudinal();
+            } catch(e) { alert('Failed to add event: ' + e); }
+        }
+
+        async function deleteEvent(id) {
+            if (!confirm('Delete this event annotation?')) return;
+            try {
+                await fetch('/events', { method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({action:'delete', id}) });
+                const r = await fetch(`longitudinal.json?t=${Date.now()}`);
+                if (r.ok) LONGITUDINAL = await r.json();
+                renderLongitudinal();
+            } catch(e) { alert('Failed to delete event: ' + e); }
+        }
+
+        // ── Narratives ────────────────────────────────────────────────────────
+        function renderNarratives() {
+            const el = document.getElementById('narratives');
+            const narrs = (NARRATIVES.narratives || []);
+            if (!narrs.length) { el.innerHTML = '<div class="muted">No narrative data yet.</div>'; return; }
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:12px">
+                Narrative co-occurrence profiles for ${narrs.length} topics. Updated ${NARRATIVES.updated||''}
+            </div>
+            <div style="font-size:12px;color:#777;background:#fff5e6;border:1px solid #d3b49f;border-radius:4px;padding:10px 14px;margin-bottom:16px;line-height:1.5">
+                <strong>How to read this:</strong> Each card shows what other topics and signal categories appear
+                in the same posts as the focal topic. High signal category percentages indicate a topic is
+                frequently discussed in a threatening or incitement context.
+            </div>`;
+
+            narrs.forEach(n => {
+                const hasHighTier = (n.signal_categories || []).some(sc =>
+                    sc.category && (sc.category.includes('incitement') || sc.category.includes('eliminationist') ||
+                    sc.category.includes('martyrdom') || sc.category.includes('operational') ||
+                    sc.category.includes('accelerationist') || sc.category.includes('doxxing'))
+                );
+                const borderColor = hasHighTier ? '#8b0000' : '#d3b49f';
+                const bgColor     = hasHighTier ? '#fff8f8' : '#f7f3e9';
+
+                const coChips = (n.co_topics || []).map(c =>
+                    `<span style="background:#e8e0d4;color:#333;font-size:11px;padding:2px 7px;border-radius:12px;margin:2px;display:inline-block">${esc(c.topic)} <b>${c.pct}%</b></span>`
+                ).join('');
+
+                const sigChips = (n.signal_categories || []).map(sc => {
+                    const isHigh = sc.category && (sc.category.includes('incitement') || sc.category.includes('eliminationist') ||
+                        sc.category.includes('martyrdom') || sc.category.includes('operational') || sc.category.includes('accelerationist'));
+                    const bg = isHigh ? '#f5e6e6' : '#e8e8ff';
+                    const color = isHigh ? '#8b0000' : '#0f0c5d';
+                    return `<span style="background:${bg};color:${color};font-size:11px;padding:2px 7px;border-radius:12px;margin:2px;display:inline-block">${esc(sc.category)} <b>${sc.count}</b></span>`;
+                }).join('');
+
+                html += `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:4px;padding:12px 14px;margin-bottom:10px">
+                    <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+                        <span style="font-weight:bold;font-size:14px;color:${hasHighTier?'#8b0000':'#0f0c5d'}">${esc(n.topic)}</span>
+                        <span style="font-size:12px;color:#888">${(n.total_posts||0).toLocaleString()} posts</span>
+                        ${hasHighTier ? '<span style="background:#8b0000;color:#fff;font-size:10px;font-weight:bold;padding:2px 6px;border-radius:3px;letter-spacing:.5px">HIGH SIGNAL</span>' : ''}
+                    </div>
+                    ${coChips ? `<div style="margin-bottom:6px"><span style="font-size:11px;color:#888;margin-right:6px">Co-occurs with:</span>${coChips}</div>` : ''}
+                    ${sigChips ? `<div><span style="font-size:11px;color:#888;margin-right:6px">Signal context:</span>${sigChips}</div>` : ''}
+                </div>`;
+            });
+
+            el.innerHTML = html;
+        }
+
+        // ── Thread Arcs ───────────────────────────────────────────────────────
+        function renderArcs() {
+            const el = document.getElementById('arcs');
+            const arcs = (ARCS.arcs || []);
+            if (!arcs.length) {
+                el.innerHTML = '<div class="muted">No thread arc data yet. Arcs are detected in threads with 6+ posts that escalate from low to high signal tier.</div>';
+                return;
+            }
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:12px">
+                <strong>${ARCS.count || arcs.length}</strong> threads showed escalating radicalization patterns. Updated ${ARCS.updated||''}
+            </div>
+            <div style="font-size:12px;color:#777;background:#fff5e6;border:1px solid #d3b49f;border-radius:4px;padding:10px 14px;margin-bottom:16px;line-height:1.5">
+                Threads where the average signal tier in the final third of posts is significantly higher
+                than the opening third — indicating radicalization escalation over the course of a thread.
+                Sorted by escalation score × peak post count.
+            </div>`;
+
+            arcs.forEach(arc => {
+                const tierColor = arc.late_tier >= 3 ? '#8b0000' : arc.late_tier >= 2 ? '#cc4400' : '#888';
+                const cats = (arc.categories || []).slice(0, 4).map(c =>
+                    `<span style="background:#f5e6e6;color:#8b0000;font-size:10px;padding:2px 6px;border-radius:3px;margin-right:4px">${esc(c)}</span>`
+                ).join('');
+
+                html += `<div style="background:#fff9f9;border-left:4px solid ${tierColor};border:1px solid #e8d0d0;border-left:4px solid ${tierColor};border-radius:4px;padding:12px 14px;margin-bottom:8px">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap">
+                        <a href="https://boards.4channel.org/pol/thread/${arc.thread_id}" target="_blank" rel="noopener" style="font-weight:bold;color:#0f0c5d;font-size:13px">Thread #${arc.thread_id}</a>
+                        <span style="font-size:12px;color:#555">${arc.post_count} posts</span>
+                        <span style="font-size:13px;font-weight:bold;color:${tierColor}">
+                            Tier ${arc.early_tier} → Tier ${arc.late_tier}
+                            <span style="font-size:11px;color:#888"> (+${arc.escalation})</span>
+                        </span>
+                        <span style="font-size:11px;color:#888">${arc.peak_posts} peak-tier posts</span>
+                    </div>
+                    ${cats ? `<div style="margin-bottom:6px">${cats}</div>` : ''}
+                    ${arc.op_snippet ? `<div style="font-size:12px;color:#555;font-style:italic;white-space:pre-wrap">"${esc(arc.op_snippet)}"</div>` : ''}
+                </div>`;
+            });
+
+            el.innerHTML = html;
+        }
+
+        // ── Export ────────────────────────────────────────────────────────────
+        function renderExport() {
+            document.getElementById('export').innerHTML = `
+                <div style="font-size:12px;color:#888;margin-bottom:20px">Download the current harvest data as CSV for use in external analysis tools (R, Python, Excel, etc.)</div>
+                <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px">
+                    <a href="/export/posts.csv" style="display:block;background:#0f0c5d;color:#fff;padding:14px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px">
+                        📥 Download posts.csv
+                    </a>
+                    <a href="/export/signals.csv" style="display:block;background:#8b0000;color:#fff;padding:14px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px">
+                        📥 Download signals.csv
+                    </a>
+                </div>
+                <div style="background:#f7f3e9;border:1px solid #d3b49f;border-radius:4px;padding:14px;font-size:13px;line-height:1.7">
+                    <div style="font-weight:bold;color:#0f0c5d;margin-bottom:8px">File contents:</div>
+                    <div style="margin-bottom:10px">
+                        <strong>posts.csv</strong> — All posts from the current harvest: post_id, thread_id, name, time, country, country_name, board_flag, board_flag_name, comment
+                    </div>
+                    <div>
+                        <strong>signals.csv</strong> — Posts that matched incitement signal patterns: post_id, thread_id, score, max_tier, categories (pipe-delimited), triggers (pipe-delimited), target_groups (pipe-delimited), ai_verdict, snippet
+                    </div>
+                </div>`;
+        }
+
+        // ── Method ────────────────────────────────────────────────────────────
+        function renderMethod() {
+            document.getElementById('method').innerHTML = `
+                <div style="max-width:760px;line-height:1.7;font-size:13px;color:#222">
+                    <h2 style="color:#0f0c5d;margin-bottom:4px">ChudWatch — Methodology</h2>
+                    <p style="color:#888;font-size:12px;margin-bottom:20px">Academic research tool for studying online extremism and radicalization patterns on 4chan /pol/.</p>
+
+                    <h3 style="color:#0f0c5d;border-bottom:1px solid #d3b49f;padding-bottom:4px">What ChudWatch Is</h3>
+                    <p>ChudWatch is a passive monitoring tool that harvests publicly accessible posts from 4chan's /pol/ board and applies a series of pattern-matching and NLP analyses to identify extremist rhetoric, radicalization pathways, and coordinated inauthentic behaviour. It is designed for academic and journalistic research into online extremism.</p>
+
+                    <h3 style="color:#0f0c5d;border-bottom:1px solid #d3b49f;padding-bottom:4px;margin-top:20px">Signal Tier Definitions</h3>
+                    <div style="margin-bottom:14px">
+                        <div style="display:flex;align-items:baseline;gap:10px;padding:8px 12px;background:#fffaee;border-left:4px solid #cc8800;margin-bottom:6px;border-radius:0 4px 4px 0">
+                            <strong style="color:#cc8800;min-width:60px">Tier 1</strong>
+                            <div><strong>Deniability / Hypothetical Framing</strong> — posts that use disclaimers ("just a joke", "in Minecraft", "hypothetically") to frame or contextualise violent language. Tracks plausible-deniability rhetoric. Example: <em>"hypothetically speaking, if someone were to…"</em></div>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:10px;padding:8px 12px;background:#fff5ee;border-left:4px solid #cc4400;margin-bottom:6px;border-radius:0 4px 4px 0">
+                            <strong style="color:#cc4400;min-width:60px">Tier 2</strong>
+                            <div><strong>Dehumanization, Passive Incitement, Coded Violence</strong> — stepping-stone rhetoric. Includes subhuman/vermin framing, disease metaphors, passive "someone should…" constructions, and coded references (helicopter rides, woodchippers, ovens, the rope). These patterns are well-documented radicalization precursors.</div>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:10px;padding:8px 12px;background:#fff0f0;border-left:4px solid #8b0000;margin-bottom:6px;border-radius:0 4px 4px 0">
+                            <strong style="color:#8b0000;min-width:60px">Tier 3</strong>
+                            <div><strong>Direct Incitement / Violence Delegation / Doxxing</strong> — explicit expressions targeting specific people or groups for violence, post-formatting that functions as a call to action, and doxxing (sharing location or personal info to facilitate targeting).</div>
+                        </div>
+                        <div style="display:flex;align-items:baseline;gap:10px;padding:8px 12px;background:#ffe8e8;border-left:4px solid #4a0000;margin-bottom:6px;border-radius:0 4px 4px 0">
+                            <strong style="color:#4a0000;min-width:60px">Tier 4</strong>
+                            <div><strong>Operational / Mass-Casualty / Martyrdom Glorification</strong> — the highest risk tier. Includes glorification of named mass shooters as "saints", gamification of body counts ("high score"), manifestos, lone-wolf operational framing, accelerationist calls to action, and specific mass-casualty planning language.</div>
+                        </div>
+                    </div>
+
+                    <h3 style="color:#0f0c5d;border-bottom:1px solid #d3b49f;padding-bottom:4px;margin-top:20px">Jargon Pipeline Tiers</h3>
+                    <div style="margin-bottom:14px">
+                        <p><strong style="color:#c88000">Tier 1 — Entry Level:</strong> General chan slang and mainstream-skepticism vocabulary that functions as a gateway into more extreme spaces. Terms like <em>normie</em>, <em>based</em>, <em>red pill</em>, <em>NPC</em>. Broad population, low barrier to entry.</p>
+                        <p><strong style="color:#cc4400">Tier 2 — Intermediate:</strong> Explicit ideological commitment. Terms that signal in-group membership in far-right ideology: <em>ethnostate</em>, <em>great replacement</em>, <em>race realist</em>, <em>white nationalist</em>.</p>
+                        <p><strong style="color:#8b0000">Tier 3 — Deep End:</strong> Pre-violence extremist terminology directly linked to documented mass-casualty events and movements: <em>ZOG</em>, <em>Day of the Rope</em>, <em>RAHOWA</em>, <em>Turner Diaries</em>, attacker saint names.</p>
+                    </div>
+
+                    <h3 style="color:#0f0c5d;border-bottom:1px solid #d3b49f;padding-bottom:4px;margin-top:20px">Data Sources</h3>
+                    <p>ChudWatch pulls from two sources via the 4chan public API (<code>a.4cdn.org</code>):</p>
+                    <ul>
+                        <li><strong>Live catalog</strong> — all currently active threads on /pol/ (~150 threads).</li>
+                        <li><strong>Archive</strong> — recently closed threads from the board's archive (configurable, default 600 threads). The archive provides a historical baseline for detecting velocity spikes and coordinated campaigns.</li>
+                    </ul>
+
+                    <h3 style="color:#0f0c5d;border-bottom:1px solid #d3b49f;padding-bottom:4px;margin-top:20px">Limitations</h3>
+                    <ul>
+                        <li><strong>Regex-based detection:</strong> Signal patterns use compiled regular expressions with word-boundary and negation guards, but regex cannot capture full semantic context. False positives (e.g. quoting a slur to criticise it) will appear. Use the AI verdict column to filter.</li>
+                        <li><strong>English only:</strong> Patterns are English-language. Non-English extremism on /pol/ is not captured.</li>
+                        <li><strong>/pol/-specific:</strong> Jargon and conspiracy definitions are tuned to the specific vocabulary of this board. Patterns may not transfer to other platforms without re-calibration.</li>
+                        <li><strong>No claim of completeness:</strong> Signal patterns capture documented extremist language but cannot enumerate all possible threatening expressions. Novel terminology or unusual phrasing will be missed.</li>
+                        <li><strong>Sampling window:</strong> Each harvest is a point-in-time snapshot. Rapidly deleted posts are not captured. The archive extends coverage but is itself incomplete for the most recent posts.</li>
+                        <li><strong>No attribution:</strong> Posts are anonymous by default on 4chan. Country flags are IP-inferred by 4chan's CDN and can be circumvented with VPNs. Tripcode correlation does not constitute identity attribution.</li>
+                    </ul>
+
+                    <h3 style="color:#0f0c5d;border-bottom:1px solid #d3b49f;padding-bottom:4px;margin-top:20px">AI Classification Note</h3>
+                    <p>When an Anthropic API key is configured, ChudWatch uses Claude (claude-haiku for batch classification, claude-sonnet for synthesis) to re-classify regex-flagged signal posts and generate narrative summaries. AI classification reduces false positives but is not infallible. The AI verdict should be treated as an additional signal, not a definitive judgement. All AI outputs are generated for research purposes under fair-use principles.</p>
+
+                    <div style="margin-top:24px;padding:12px 14px;background:#f0eade;border-radius:4px;font-size:11px;color:#888">
+                        ChudWatch was built for academic extremism research. Data collected is not shared with third parties. Researchers should follow applicable IRB and ethics guidelines when using this tool in published work.
+                    </div>
+                </div>`;
+        }
+
         // ── Refresh All ───────────────────────────────────────────────────────
         async function refreshAll() {
             if(!confirm('Delete all collected data and restart the harvest now?')) return;
@@ -1104,9 +1518,9 @@
                     if(progressInterval){clearInterval(progressInterval);progressInterval=null; }
                     if(checkInterval){   clearInterval(checkInterval);   checkInterval=null; }
 
-                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};
+                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};LONGITUDINAL={};ARCS={};NARRATIVES={};
                     _lastUpdated=null; _dataLoadedAt=0;
-                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary'].forEach(id=>{
+                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary','longitudinal','narratives','arcs','export','method'].forEach(id=>{
                         document.getElementById(id).innerHTML='';
                     });
                     document.getElementById('trends').innerHTML='';

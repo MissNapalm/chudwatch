@@ -96,20 +96,27 @@ def save_and_analyze(posts):
     velocity = sum(1 for p in posts if p.get('com'))
 
     metrics_file = os.path.join(SCRIPT_DIR, 'metrics.json')
-    with open(metrics_file, 'w') as f:
+    tmp = metrics_file + '.tmp'
+    with open(tmp, 'w') as f:
         json.dump({"velocity": velocity, "updated": now}, f)
+    os.replace(tmp, metrics_file)
 
     # Trend analysis on the raw current batch — real mention counts, not DB queries
     raw_comments = [p['com'] for p in posts if p.get('com')]
     update_trends(raw_comments)
 
-    c.execute("SELECT post_id, thread_id, name, time, comment FROM posts ORDER BY post_id DESC LIMIT 1000")
-    all_posts = [{"post_id": r[0], "thread_id": r[1], "name": r[2], "time": r[3], "comment": r[4]} for r in c.fetchall()]
-
+    # Write ALL posts from the current batch so viewer search matches trend counts exactly
+    all_posts = [
+        {"post_id": p['no'], "thread_id": p.get('thread_id'), "name": p.get('name', 'Anonymous'),
+         "time": p.get('now', ''), "comment": p.get('com', '')}
+        for p in posts if p.get('com')
+    ]
     posts_file = os.path.join(SCRIPT_DIR, 'posts.json')
+    tmp = posts_file + '.tmp'
     print(f"[+] Writing {posts_file} ({len(all_posts)} posts)")
-    with open(posts_file, 'w') as f:
+    with open(tmp, 'w') as f:
         json.dump(all_posts, f)
+    os.replace(tmp, posts_file)
 
     conn.close()
 
@@ -169,21 +176,22 @@ def update_trends(raw_comments):
                 if len(phrase) > 5 and phrase not in STOP_TOPICS:
                     candidates.add(phrase)
 
-        # Pass 2: whole-word count of every candidate across ALL post text
-        # Use regex word boundaries so "Jus" doesn't match inside "justice"
+        # Pass 2: count posts containing the candidate using substring match —
+        # same method as the viewer's search so the numbers always agree
         topic_counts = collections.Counter()
-        for topic in candidates:
-            pattern = r'\b' + re.escape(topic.lower()) + r'\b'
-            count = len(re.findall(pattern, full_lower))
-            if count > 0:
-                topic_counts[topic] = count
+        lower_map = {topic: topic.lower() for topic in candidates}
+        for text in texts:
+            text_lower = text.lower()
+            for topic, topic_lower in lower_map.items():
+                if topic_lower in text_lower:
+                    topic_counts[topic] += 1
 
         filtered = [(w, c) for w, c in topic_counts.most_common(100)
                     if w not in STOP_TOPICS and len(w) > 2]
         _write_trends(filtered[:25], len(texts))
         return
 
-    # Fallback (no spaCy): regex-find capitalized words/phrases, then count them
+    # Fallback (no spaCy): regex-find capitalized words/phrases, then count posts
     stop_lower = {w.lower() for w in STOP_TOPICS}
     candidates = set()
     for text in texts:
@@ -195,11 +203,12 @@ def update_trends(raw_comments):
                 candidates.add(w)
 
     topic_counts = collections.Counter()
-    for topic in candidates:
-        pattern = r'\b' + re.escape(topic.lower()) + r'\b'
-        count = len(re.findall(pattern, full_lower))
-        if count > 0:
-            topic_counts[topic] = count
+    lower_map = {topic: topic.lower() for topic in candidates}
+    for text in texts:
+        text_lower = text.lower()
+        for topic, topic_lower in lower_map.items():
+            if topic_lower in text_lower:
+                topic_counts[topic] += 1
 
     _write_trends(topic_counts.most_common(25), len(texts), fallback=True)
 
@@ -228,11 +237,7 @@ def run_harvest():
             
             print(f"[*] Found {len(threads)} threads — fetching all posts...")
             all_posts = []
-<<<<<<< Updated upstream
-            for i, thread_id in enumerate(threads[:100]):  # Changed from 50 to 100
-=======
             for i, thread_id in enumerate(threads):
->>>>>>> Stashed changes
                 try:
                     thread_url = f"https://a.4cdn.org/{BOARD}/thread/{thread_id}.json"
                     tr = requests.get(thread_url, timeout=10)
@@ -242,17 +247,10 @@ def run_harvest():
                     all_posts.extend(posts)
                 except:
                     pass
-<<<<<<< Updated upstream
-                if (i + 1) % 10 == 0:
-                    print(f"[ Progress: {i+1}/{len(threads[:100])} threads downloaded ]")
-            
-            print(f"[+] Harvested {len(all_posts)} posts")
-=======
                 if (i + 1) % 25 == 0:
                     print(f"[ {i+1}/{len(threads)} threads | {len(all_posts)} posts so far ]")
 
             print(f"[+] Harvested {len(all_posts)} posts from {len(threads)} threads")
->>>>>>> Stashed changes
             save_and_analyze(all_posts)
             print("[*] Sleeping 5 minutes before next refresh...")
             time.sleep(300)

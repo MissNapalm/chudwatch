@@ -173,44 +173,155 @@ def _start_server():
 
 # --- "Someone Should" signal detection ---------------------------------------
 #
-# Two tiers only. T1 (deniability/hypothetical framing) was removed — it is
-# ubiquitous on 4chan and generates almost exclusively false positives.
+# Signal tiers:
+#   Tier 1 — Deniability / contextualization markers (tracks plausible-deniability framing)
+#   Tier 2 — Dehumanization + passive incitement + coded violence (stepping-stone rhetoric)
+#   Tier 3 — Direct incitement / violence delegation / doxxing
+#   Tier 4 — Operational / mass-casualty / martyrdom glorification
 #
-# Tier 2 = passive incitement / classic veiled-threat patterns
-# Tier 3 = direct violence delegation or explicit death language
+# Patterns use word-boundary and negation guards to minimize false positives.
+# Labels map to display categories in the viewer.
 #
 _RAW_PATTERNS = [
-    # T1 — community-specific deniability markers worth tracking on their own
-    (r"\bin minecraft\b",                                                       "minecraft disclaimer", 1),
+    # ── Tier 1: Deniability / hypothetical framing ─────────────────────────────
+    (r"\bin minecraft\b",                                                                   "minecraft disclaimer",         1),
+    (r"\bhypothetically (speaking|enough)\b",                                               "hypothetical framing",         1),
+    (r"\bfor (a |the )?(story|novel|book|fiction|writing)\b",                               "fiction disclaimer",           1),
+    (r"\b(just |only )?(as |a )?(joke|hypothetical|thought experiment|roleplay|rp)\b",      "joke disclaimer",              1),
+    (r"\bnot (serious|saying|advocating|condoning)\b.{0,25}(kill|shoot|hang|gas|murder)",   "not-serious disclaimer",       1),
+    (r"\bfor legal reasons\b",                                                              "legal disclaimer",             1),
 
-    # T2 — passive incitement (must carry harm/threat context by construction)
-    (r"someone (should|needs? to|ought to|has to|must) (kill|shoot|stab|attack|bomb|murder|hang|gas|execute|eliminate|hurt|harm|take out|get rid of)",
-                                                                                "passive incitement",   2),
-    (r"somebody (should|needs? to|must) (kill|shoot|stab|attack|bomb|murder|hang|gas|execute|eliminate|hurt|harm)",
-                                                                                "passive incitement",   2),
-    (r"if only (someone|somebody|a person) would (kill|shoot|eliminate|deal with|get rid of|stop|remove)",
-                                                                                "passive incitement",   2),
-    (r"be a (real )?shame if (something happened|an accident|they got|he got|she got|it (got|was) (damaged|destroyed|burned|killed))",
-                                                                                "veiled threat",        2),
-    (r"shame if (something|an accident|something bad) (happened?|were to happen|occurs?)",
-                                                                                "veiled threat",        2),
-    (r"accidents? (can |do )?happen",                                           "veiled threat",        2),
-    (r"won'?t be around (long|much longer|forever)",                            "veiled threat",        2),
+    # ── Tier 2: Dehumanization ─────────────────────────────────────────────────
+    # Subhuman / not-human framing
+    (r"\b(sub-?humans?|subhumans?)\b",                                                      "dehumanization",               2),
+    (r"\bnot (really |fully |even |actual )?humans?\b",                                     "dehumanization",               2),
+    (r"\b(barely|hardly|less than|not quite) humans?\b",                                    "dehumanization",               2),
+    (r"\b(animals?|beasts?|creatures?) (like|that) (them|these people|they)\b",             "dehumanization",               2),
+    # Vermin / parasite metaphors
+    (r"\b(parasites?|vermin|cockroaches?|rats?|locusts?|leeches?|bloodsuckers?)\b",         "vermin rhetoric",              2),
+    (r"\b(infestation|infesting|infested)\b",                                               "vermin rhetoric",              2),
+    (r"\b(exterminate|eradicate|purge).{0,30}\b(vermin|parasites?|cockroaches?|rats?)\b",   "vermin rhetoric",              2),
+    # Disease/cancer metaphor
+    (r"\b(cancer|plague|disease|infection|virus|rot|blight) of (the )?(west|society|nation|world|country|civilization)",
+                                                                                            "disease rhetoric",             2),
+    (r"\b(society|nation|country|the west|civilization) (is )?(infested|infected|rotting|dying) (with|because of)\b",
+                                                                                            "disease rhetoric",             2),
+    # Scum / filth framing
+    (r"\b(absolute |total |utter )?(scum|filth|degenerates?|trash|garbage|vermin) (of|that) (society|the earth|humanity)\b",
+                                                                                            "dehumanization",               2),
+    (r"\b(human )?(scum|filth|trash|garbage|waste)\b",                                     "dehumanization",               2),
 
-    # T3 — direct incitement / violence delegation
-    (r"needs? to be (killed|shot|eliminated|exterminated|hanged?|gassed|executed|murdered|put down)",
-                                                                                "direct incitement",    3),
-    # Negation guard: skip "didn't/doesn't/never deserve to die"
-    (r"(?<!didn't )(?<!doesn't )(?<!never )(?<!not )deserves? to (die|be killed|be shot|be hanged?|be executed|hang|burn)",
-                                                                                "direct incitement",    3),
-    # "do X a favour and [harm verb]" — must include explicit harm intent, not just a generic insult
-    (r"(do|did) (the world|everyone|society|us all) a (favor|favour) and (kill|shoot|remove|eliminate|get rid of|take out)",
-                                                                                "direct incitement",    3),
-    (r"someone (deal|deals|dealt|dealing) with (him|her|them|this|that)",       "direct incitement",    3),
-    (r"has (this |it )?coming( to (him|her|them))?",                            "direct incitement",    3),
-    (r"not going to end well for (him|her|them|these people)",                  "direct incitement",    3),
-    (r"(find|post|share|get).{0,15}(his|her|their).{0,10}(address|location|doxx|home address)",
-                                                                                "doxxing",              3),
+    # ── Tier 2: Passive incitement ─────────────────────────────────────────────
+    (r"\bsomeone (should|needs? to|ought to|has to|must) (kill|shoot|stab|attack|bomb|murder|hang|gas|execute|eliminate|hurt|harm|take out|get rid of)\b",
+                                                                                            "passive incitement",           2),
+    (r"\bsomebody (should|needs? to|must) (kill|shoot|stab|attack|bomb|murder|hang|gas|execute|eliminate|hurt|harm)\b",
+                                                                                            "passive incitement",           2),
+    (r"\bif only (someone|somebody|a person) would (kill|shoot|eliminate|deal with|get rid of|stop|remove)\b",
+                                                                                            "passive incitement",           2),
+    (r"\bwish (someone|somebody) would (kill|shoot|hang|gas|remove|eliminate|take care of)\b",
+                                                                                            "passive incitement",           2),
+    (r"\b(too bad|shame|pity|unfortunate) (nobody|no one) (has|will|would) (kill|shoot|stop|deal with|remove|eliminate)\b",
+                                                                                            "passive incitement",           2),
+    (r"\b(rope[- ]ready|ripe for (hanging|the rope)|worthy of (a rope|the noose))\b",      "passive incitement",           2),
+
+    # ── Tier 2: Veiled threats ─────────────────────────────────────────────────
+    (r"\bbe a (real )?shame if (something happened|an accident|they got|he got|she got|it (got|was) (damaged|destroyed|burned|killed))\b",
+                                                                                            "veiled threat",                2),
+    (r"\bshame if (something|an accident|something bad) (happened?|were to happen|occurs?)\b",
+                                                                                            "veiled threat",                2),
+    (r"\baccidents? (can |do )?happen\b",                                                   "veiled threat",                2),
+    (r"\bwon'?t be around (long|much longer|forever)\b",                                    "veiled threat",                2),
+    (r"\bwouldn'?t (be|last) (long|much longer|much)\b",                                    "veiled threat",                2),
+    (r"\b(watch (your|their|his|her) back|eyes? in the back of (your|their|his|her) head)\b",
+                                                                                            "veiled threat",                2),
+    (r"\b(something|things|it) (will|might|could) happen (to|for) (you|them|him|her|those|these)\b",
+                                                                                            "veiled threat",                2),
+
+    # ── Tier 2: Coded / meme violence references ───────────────────────────────
+    # Pinochet helicopter-ride meme (political murder reference)
+    (r"\b(free )?(helicopter|heli) (ride|rides|trip|trips)\b",                             "coded violence (helicopter)",  2),
+    (r"\bpinochet.{0,20}(helicopter|heli|drop|drops|threw|throw)\b",                       "coded violence (helicopter)",  2),
+    # Wood chipper / violence memes
+    (r"\b(wood ?chipper|orc grinding|into the chipper)\b",                                 "coded violence (chipper)",     2),
+    # "Against the wall" shooting-squad reference
+    (r"\b(put|place|line|take|march).{0,15}\b(them|him|her|these (people|guys|fucks?)).{0,20}(against|up against|facing) the wall\b",
+                                                                                            "coded violence (wall)",        2),
+    # Ovens / Holocaust threat reuse
+    (r"\b(back to|into|send.{0,10}to|straight to) the ovens?\b",                           "coded violence (ovens)",       2),
+    (r"\bgas (the|all|every|those).{0,30}\b(kikes?|jews?|n+i+g+g+[ae]+r+s?|blacks?|muslims?|trannies|trans)\b",
+                                                                                            "coded violence (gas)",         2),
+    # "The rope" used as execution threat
+    (r"\b(get|deserve|need|earn).{0,15}(the rope|a rope|the noose|the gallows)\b",         "coded violence (rope)",        2),
+    (r"\b(rope|noose) for (them|him|her|all|every|those)\b",                               "coded violence (rope)",        2),
+    # "Remove kebab" (anti-Muslim violence meme)
+    (r"\bremove (kebab|kikes?|jews?|niggers?|trannies|faggots?)\b",                        "eliminationist rhetoric",      2),
+
+    # ── Tier 2: Eliminationist / cleansing language ────────────────────────────
+    (r"\b(ethnic |racial |cultural )?(cleansing|purification)\b",                          "eliminationist rhetoric",      2),
+    (r"\b(cleanse|purge|purify).{0,30}(society|nation|country|the west|civilization|world)\b",
+                                                                                            "eliminationist rhetoric",      2),
+    (r"\b(rid|purge|cleanse|free).{0,20}(the world|our country|society|civilization).{0,20}(of|from) (them|these people|jews?|blacks?|muslims?|trannies?)\b",
+                                                                                            "eliminationist rhetoric",      2),
+    (r"\b(final solution|endlösung)\b",                                                    "eliminationist rhetoric",      2),
+    (r"\b(demographic|racial|white) (replacement|genocide|erasure).{0,40}(must be stopped|or else|won't stand|will fight)\b",
+                                                                                            "eliminationist rhetoric",      2),
+
+    # ── Tier 3: Direct incitement ──────────────────────────────────────────────
+    (r"\bneeds? to be (killed|shot|eliminated|exterminated|hanged?|gassed|executed|murdered|put down|taken out|liquidated|disposed of)\b",
+                                                                                            "direct incitement",            3),
+    (r"\bshould (all )?be (killed|shot|hanged?|gassed|executed|murdered|exterminated|put down|taken out|liquidated)\b",
+                                                                                            "direct incitement",            3),
+    # Negation guard for "deserve to die"
+    (r"(?<!didn't )(?<!doesn't )(?<!never )(?<!not )deserves? to (die|be killed|be shot|be hanged?|be executed|hang|burn|suffer)\b",
+                                                                                            "direct incitement",            3),
+    # "do X a favour and [harm verb]"
+    (r"\b(do|did) (the world|everyone|society|us all) a (favor|favour) and (kill|shoot|remove|eliminate|get rid of|take out|murder|execute|hang)\b",
+                                                                                            "direct incitement",            3),
+    (r"\bsomeone (deal|deals|dealt|dealing) with (him|her|them|this|that)\b",              "direct incitement",            3),
+    (r"\bhas (this |it )?coming( to (him|her|them))?\b",                                   "direct incitement",            3),
+    (r"\bnot going to end well for (him|her|them|these people)\b",                         "direct incitement",            3),
+    # Explicit hanging/stringing up
+    (r"\b(string|hang|lynch|strung|hanged?|lynched?).{0,20}(them|him|her|these|those|all (of )?(them|you))\b",
+                                                                                            "direct incitement",            3),
+    # Shooting / stabbing with target
+    (r"\b(shoot|stab|knife|gun down|open fire on|mow down).{0,20}(them|him|her|these people|those people|all (of )?them)\b",
+                                                                                            "direct incitement",            3),
+    # Burning / firebombing
+    (r"\b(burn (down|alive)|set (fire|alight)|firebomb).{0,20}(their|his|her|the).{0,20}(house|home|building|mosque|synagogue|church|school)\b",
+                                                                                            "direct incitement",            3),
+    # Exterminate / liquidate / annihilate groups
+    (r"\b(exterminate|liquidate|annihilate|wipe out|erase).{0,20}(them|all (of )?them|every (last )?one|the (jews?|blacks?|muslims?|trannies?|gays?|whites?))\b",
+                                                                                            "direct incitement",            3),
+    # Doxxing / target coordination
+    (r"\b(find|post|share|get|here('?s| is)).{0,20}(his|her|their).{0,20}(address|location|doxx|home address|workplace|school)\b",
+                                                                                            "doxxing",                      3),
+    (r"\b(lives? at|works? at|goes? to|found (him|her|them) at).{0,50}\b(street|avenue|road|drive|lane|boulevard|court)\b",
+                                                                                            "doxxing",                      3),
+    (r"\bpersonal info.{0,30}(posted|dropped|leaked|shared)\b",                            "doxxing",                      3),
+
+    # ── Tier 4: Martyrdom glorification / mass-casualty / operational ──────────
+    # Glorifying named attackers as "saints"
+    (r"\b(saint|based|hero|martyr|legend).{0,20}(tarrant|breivik|roof|crusius|earnest|gendron|bowers|mateen|lanza)\b",
+                                                                                            "martyrdom glorification",      4),
+    (r"\b(tarrant|breivik|roof|crusius|earnest|gendron|bowers|mateen|lanza).{0,20}(did nothing wrong|was right|had the right idea|is a hero|based)\b",
+                                                                                            "martyrdom glorification",      4),
+    # "High score" mass-casualty gamification
+    (r"\b(high score|highscore|beat (the|his|their) (score|record|count|number))\b",       "mass-casualty gamification",   4),
+    (r"\b(body count|kill count|death toll).{0,20}(record|high|score|beat|break)\b",       "mass-casualty gamification",   4),
+    # Operational/planning language
+    (r"\b(manifesto|written manifesto|posted (his|a|the) manifesto)\b",                    "operational signal",           4),
+    (r"\b(target[- ]rich environment)\b",                                                  "operational signal",           4),
+    (r"\blone wolf.{0,20}(attack|strike|operation|act)\b",                                 "operational signal",           4),
+    (r"\b(mass (shooting|casualty|attack|stabbing)).{0,20}(plan|planning|when|how|where)\b",
+                                                                                            "operational signal",           4),
+    # Accelerationist trigger language
+    (r"\b(race war (now|soon|is coming|is inevitable|start|begin))\b",                     "accelerationist call",         4),
+    (r"\b(boogaloo|big igloo|big luau).{0,15}(soon|now|start|begin|time|when)\b",          "accelerationist call",         4),
+    (r"\b(collapse.{0,20}(society|civilization|system)|burn.{0,20}(it all|everything|the system) down)\b",
+                                                                                            "accelerationist call",         4),
+    (r"\baccelerationis[mt].{0,30}(only way|the answer|will|right|correct|necessary)\b",   "accelerationist call",         4),
+    (r"\bday of the rope\b",                                                                "accelerationist call",         4),
+    (r"\brahowa\b",                                                                         "accelerationist call",         4),
 ]
 
 SIGNAL_PATTERNS = [
@@ -780,7 +891,9 @@ def detect_signals(posts):
     with open(tmp, 'w') as f:
         json.dump(out, f)
     os.replace(tmp, dest)
-    print(f"[+] Signals: {len(results)} posts matched ({sum(1 for r in results if r['max_tier']==3)} tier-3)")
+    t4 = sum(1 for r in results if r['max_tier'] == 4)
+    t3 = sum(1 for r in results if r['max_tier'] == 3)
+    print(f"[+] Signals: {len(results)} posts matched (T4={t4} operational, T3={t3} direct incitement)")
 
 
 def detect_jargon(posts):

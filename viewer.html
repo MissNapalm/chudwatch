@@ -47,19 +47,22 @@
 
         /* Signals tab */
         .signal-card { border-left:4px solid #ccc; padding:10px 14px; margin-bottom:8px; background:#fff9f9; font-size:13px; }
+        .signal-card.t4 { border-left-color:#4a0000; background:#ffe8e8; }
         .signal-card.t3 { border-left-color:#8b0000; background:#fff0f0; }
         .signal-card.t2 { border-left-color:#cc4400; background:#fff5ee; }
         .signal-card.t1 { border-left-color:#cc8800; background:#fffaee; }
         .signal-tier { font-size:11px; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px; }
+        .t4-badge { background:#4a0000; color:#fff; }
         .t3-badge { background:#8b0000; color:#fff; }
         .t2-badge { background:#cc4400; color:#fff; }
         .t1-badge { background:#cc8800; color:#fff; }
         .trigger-tag { background:#ffe0e0; color:#8b0000; font-size:11px; padding:2px 6px; border-radius:3px; margin-right:4px; font-family:monospace; }
         .cat-tag { background:#e8e8ff; color:#0f0c5d; font-size:11px; padding:2px 6px; border-radius:3px; margin-right:4px; }
         .signal-highlight { background:#ffdddd; font-weight:bold; }
-        .signal-count-row { display:flex; gap:16px; margin-bottom:16px; }
-        .sig-stat { background:#f7f3e9; border:1px solid #d3b49f; padding:12px 20px; border-radius:4px; text-align:center; flex:1; }
-        .sig-stat .num { font-size:28px; font-weight:bold; }
+        .signal-count-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+        .sig-stat { background:#f7f3e9; border:1px solid #d3b49f; padding:10px 14px; border-radius:4px; text-align:center; flex:1; min-width:120px; }
+        .sig-stat .num { font-size:26px; font-weight:bold; }
+        .sig-stat.t4-stat .num { color:#4a0000; }
         .sig-stat.t3-stat .num { color:#8b0000; }
         .sig-stat.t2-stat .num { color:#cc4400; }
         .sig-stat.t1-stat .num { color:#cc8800; }
@@ -472,27 +475,42 @@
         }
 
         // ── Signals ───────────────────────────────────────────────────────────
+        const TIER_META = {
+            4: { label: 'Tier 4 — Operational / Martyrdom',   cls: 't4-stat', badge: 't4-badge', color: '#4a0000' },
+            3: { label: 'Tier 3 — Direct Incitement',         cls: 't3-stat', badge: 't3-badge', color: '#8b0000' },
+            2: { label: 'Tier 2 — Dehumanization / Passive',  cls: 't2-stat', badge: 't2-badge', color: '#cc4400' },
+            1: { label: 'Tier 1 — Deniability Framing',       cls: 't1-stat', badge: 't1-badge', color: '#888'    },
+        };
+
         function renderSignals() {
             const el = document.getElementById('signals');
             const sigs = SIGNALS.signals || [];
             if (!sigs.length) { el.innerHTML='<div class="muted">No signal posts detected in this batch.</div>'; return; }
-            const t3 = sigs.filter(s=>s.max_tier===3).length;
-            const t2 = sigs.filter(s=>s.max_tier===2).length;
-            const t1 = sigs.filter(s=>s.max_tier===1).length;
+
+            const counts = {4:0,3:0,2:0,1:0};
+            sigs.forEach(s => { counts[s.max_tier] = (counts[s.max_tier]||0) + 1; });
+
+            // Category breakdown
+            const catCounts = {};
+            sigs.forEach(s => (s.categories||[]).forEach(c => { catCounts[c]=(catCounts[c]||0)+1; }));
+            const catRows = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,12)
+                .map(([c,n])=>`<span style="background:#f5ede6;border:1px solid #d3b49f;border-radius:3px;padding:2px 7px;font-size:11px;margin:2px">${esc(c)} <b>${n}</b></span>`).join('');
+
             el.innerHTML = `
                 <div class="signal-count-row">
-                    <div class="sig-stat t3-stat"><div class="num">${t3}</div><div>Tier 3 — Direct Incitement</div></div>
-                    <div class="sig-stat t2-stat"><div class="num">${t2}</div><div>Tier 2 — Passive Mobilization</div></div>
-                    <div class="sig-stat t1-stat"><div class="num">${t1}</div><div>Tier 1 — Deniability Framing</div></div>
+                    ${[4,3,2,1].map(t=>`<div class="sig-stat ${TIER_META[t].cls}"><div class="num">${counts[t]||0}</div><div>${TIER_META[t].label}</div></div>`).join('')}
                 </div>
-                <div style="font-size:12px;color:#888;margin-bottom:12px">Showing top ${Math.min(sigs.length,150)} of ${SIGNALS.count} matched posts · updated ${SIGNALS.updated||''}</div>
-                ${sigs.slice(0,150).map(s=>{
-                    const tierClass = `t${s.max_tier}`;
-                    const badgeClass = `t${s.max_tier}-badge`;
-                    const cats = s.categories.map(c=>`<span class="cat-tag">${esc(c)}</span>`).join('');
-                    const trigs = s.triggers.map(t=>`<span class="trigger-tag">${esc(t)}</span>`).join('');
+                <div style="margin-bottom:12px;padding:10px;background:#faf7f4;border-radius:6px;border:1px solid #ede8e0">
+                    <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">Category breakdown</div>
+                    ${catRows}
+                </div>
+                <div style="font-size:12px;color:#888;margin-bottom:12px">Showing top ${Math.min(sigs.length,200)} of ${SIGNALS.count} matched posts · updated ${SIGNALS.updated||''}</div>
+                ${sigs.slice(0,200).map(s=>{
+                    const meta = TIER_META[s.max_tier] || TIER_META[3];
+                    const cats = (s.categories||[]).map(c=>`<span class="cat-tag" style="${s.max_tier>=3?'background:#f5e6e6;border-color:#c44':''}${s.max_tier>=4?'background:#f0e0e0;border-color:#900':''}">${esc(c)}</span>`).join('');
+                    const trigs = (s.triggers||[]).map(t=>`<span class="trigger-tag">${esc(t)}</span>`).join('');
                     let snip = esc(s.snippet||s.comment||'');
-                    s.triggers.forEach(t => {
+                    (s.triggers||[]).forEach(t => {
                         snip = snip.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
                             m=>`<span class="signal-highlight">${m}</span>`);
                     });
@@ -501,9 +519,9 @@
                                       verd === 'ambiguous'     ? `<span class="ai-ambiguous">~ AI: AMBIGUOUS</span>` :
                                       verd === 'false_positive'? `<span class="ai-fp">✗ AI: FALSE POSITIVE</span>` : '';
                     const aiReason = s.ai_reason ? `<div class="ai-reason">${esc(s.ai_reason)}</div>` : '';
-                    return `<div class="signal-card ${tierClass}${verd==='false_positive'?' fp-card':''}">
+                    return `<div class="signal-card t${s.max_tier}${verd==='false_positive'?' fp-card':''}">
                         <div style="margin-bottom:6px">
-                            <span class="signal-tier ${badgeClass}">TIER ${s.max_tier}</span>${verdBadge}${cats}${trigs}
+                            <span class="signal-tier ${meta.badge}">TIER ${s.max_tier}</span>${verdBadge}${cats}${trigs}
                             <a href="https://boards.4channel.org/pol/thread/${s.thread_id}#p${s.post_id}" target="_blank" rel="noopener" style="float:right;font-size:11px">[View]</a>
                         </div>
                         ${aiReason}

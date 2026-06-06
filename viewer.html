@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>ChudWatch | Political Sentiment Monitor</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background: #f0eade; color: #800000; margin: 20px; }
         .container { max-width: 1000px; margin: 0 auto; background: #fff; padding: 20px; border: 1px solid #d3b49f; border-radius: 5px; }
@@ -30,6 +31,9 @@
         .progress-text { color: #666; font-size: 14px; margin-top: 10px; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        #bubbles svg { display: block; margin: 0 auto; }
+        #bubbles .bubble-label { pointer-events: none; fill: #fff; font-family: Arial, sans-serif; font-weight: bold; text-anchor: middle; }
+        #bubbles .bubble-count { pointer-events: none; fill: rgba(255,255,255,0.82); font-family: Arial, sans-serif; text-anchor: middle; }
     </style>
 </head>
 <body>
@@ -54,16 +58,19 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('posts')">Posts</button>
-            <button class="tab-btn" onclick="switchTab('threads')">Threads (OPs)</button>
+            <button class="tab-btn active" data-tab="posts" onclick="switchTab('posts')">Posts</button>
+            <button class="tab-btn" data-tab="threads" onclick="switchTab('threads')">Threads (OPs)</button>
+            <button class="tab-btn" data-tab="bubbles" onclick="switchTab('bubbles')">Bubble Chart</button>
         </div>
 
         <div id="posts" class="tab-content active"></div>
         <div id="threads" class="tab-content"></div>
+        <div id="bubbles" class="tab-content"></div>
     </div>
 
     <script>
         let POSTS = [];
+        let TRENDS = [];
 
         function stripHTML(html) {
             const tmp = document.createElement('DIV');
@@ -75,8 +82,9 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tab).classList.add('active');
-            event.target.classList.add('active');
-            render();
+            document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+            if (tab === 'bubbles') renderBubbles();
+            else render();
         }
 
         async function load() {
@@ -99,7 +107,8 @@
                 document.getElementById('statusBar').innerText = `Database Loaded: ${Array.isArray(POSTS) ? POSTS.length : 0} posts indexed.`;
                 document.getElementById('loading').style.display = 'none';
 
-                const trends = Array.isArray(trendsRaw) ? trendsRaw : [];
+                TRENDS = Array.isArray(trendsRaw) ? trendsRaw : [];
+                const trends = TRENDS;
                 document.getElementById('trends').innerHTML = trends.slice(0, 20).map(t => {
                     let name = '', count = 0;
                     if (Array.isArray(t)) { name = String(t[0] || ''); count = Number(t[1] || 0); }
@@ -108,7 +117,9 @@
                     return `<span class="trend-chip" onclick="setS('${esc.split(' ')[0]}')">${esc} <b>(${count})</b></span>`;
                 }).join('');
 
-                render();
+                const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab');
+                if (activeTab === 'bubbles') renderBubbles();
+                else render();
             } catch (e) {
                 document.getElementById('progressText').innerText = 'Waiting for data to populate... (will auto-refresh)';
                 document.getElementById('loading').style.display = 'block';
@@ -182,6 +193,77 @@
                     <a href="https://boards.4channel.org/pol/thread/${thread}" target="_blank" rel="noopener noreferrer">[View Thread]</a>
                     <div style="margin-top:8px; white-space:pre-wrap;">${cleanComment}</div></div>`;
             }).join('');
+        }
+
+        function renderBubbles() {
+            const container = document.getElementById('bubbles');
+            if (!TRENDS.length) {
+                container.innerHTML = '<div class="muted" style="padding:20px">No trend data yet.</div>';
+                return;
+            }
+
+            const w = container.clientWidth || 960;
+            const h = 560;
+            container.innerHTML = '';
+
+            const data = TRENDS.map(t => ({
+                name: Array.isArray(t) ? String(t[0]) : String(t.name || ''),
+                count: Array.isArray(t) ? Number(t[1]) : Number(t.count || 0)
+            })).filter(d => d.name && d.count > 0);
+
+            const maxCount = d3.max(data, d => d.count);
+            const rScale = d3.scaleSqrt().domain([0, maxCount]).range([18, 90]);
+            const colorScale = d3.scaleSequential()
+                .domain([0, maxCount])
+                .interpolator(d3.interpolateRgb('#c9a382', '#0f0c5d'));
+
+            // Run force layout synchronously so there's no animation jitter
+            const sim = d3.forceSimulation(data)
+                .force('x', d3.forceX(w / 2).strength(0.07))
+                .force('y', d3.forceY(h / 2).strength(0.07))
+                .force('collide', d3.forceCollide(d => rScale(d.count) + 2.5))
+                .stop();
+            for (let i = 0; i < 400; i++) sim.tick();
+
+            const svg = d3.select(container).append('svg')
+                .attr('width', w).attr('height', h);
+
+            const node = svg.selectAll('g').data(data).enter().append('g')
+                .attr('transform', d => {
+                    const r = rScale(d.count);
+                    const x = Math.max(r, Math.min(w - r, d.x));
+                    const y = Math.max(r, Math.min(h - r, d.y));
+                    return `translate(${x},${y})`;
+                })
+                .style('cursor', 'pointer')
+                .on('click', (event, d) => {
+                    document.getElementById('search').value = d.name;
+                    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                    document.getElementById('posts').classList.add('active');
+                    document.querySelector('[data-tab="posts"]').classList.add('active');
+                    renderPosts(d.name.toLowerCase());
+                });
+
+            node.append('circle')
+                .attr('r', d => rScale(d.count))
+                .attr('fill', d => colorScale(d.count))
+                .attr('stroke', 'rgba(255,255,255,0.3)')
+                .attr('stroke-width', 1.5);
+
+            // Topic name — hide if bubble is too small
+            node.filter(d => rScale(d.count) >= 28).append('text')
+                .attr('class', 'bubble-label')
+                .attr('dy', d => rScale(d.count) >= 45 ? '-0.25em' : '0.35em')
+                .style('font-size', d => Math.min(rScale(d.count) / 3.2, 15) + 'px')
+                .text(d => d.name);
+
+            // Count — only on larger bubbles
+            node.filter(d => rScale(d.count) >= 45).append('text')
+                .attr('class', 'bubble-count')
+                .attr('dy', '1.1em')
+                .style('font-size', d => Math.min(rScale(d.count) / 4.5, 12) + 'px')
+                .text(d => d.count);
         }
 
         let lastDataTime = 0;

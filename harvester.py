@@ -93,23 +93,42 @@ STOP_TOPICS = {
 # Collapsed topic groups: variant terms → single canonical label.
 # A post is counted for the group if it contains ANY variant.
 TOPIC_GROUPS = {
-    'Indians':   ['india', 'indian', 'indians', 'jeet', 'jeets', 'pajeet', 'pajeets', 'poo in loo', 'poos'],
-    'Jews':      ['jew', 'jews', 'jewish', 'jewry', 'kike', 'kikes', 'heeb', 'heebs'],
-    'White':     ['white', 'whites', 'whiteness', 'white people', 'white man', 'white men',
-                  'white woman', 'white women', 'white race', 'aryan', 'aryans'],
-    'Trans':     ['transgender', 'trans', 'troon', 'trooned', 'tranny', 'trannies', 'transsexual', 'transsexuals'],
-    'Black People':    ['black', 'blacks', 'nigger', 'niggers', 'nigga', 'niggas'],
-    'Women':           ['woman', 'women', 'female', 'females', 'foid', 'foids', 'roastie', 'roasties'],
-    'Muslims':   ['muslim', 'muslims', 'islam', 'islamic', 'islamist', 'islamists'],
-    'America':   ['america', 'american', 'americans', 'usa', 'u.s.', 'merican'],
-    'Trump':     ['trump', 'donald trump', 'drumpf', 'maga', 'trumpism', 'trumpist'],
-    'Russia':    ['russia', 'russian', 'russians'],
-    'China':     ['china', 'chinese', 'chink', 'chinks'],
-    'Israel':    ['israel', 'israeli', 'israelis', 'zionist', 'zionists', 'zionism'],
-    'Christian': ['christian', 'christians', 'christ', 'christkek', 'christkeks', 'christcuck', 'christcucks'],
-    'Ukraine':   ['ukraine', 'ukrainian', 'ukrainians'],
-    'Latinos':   ['latino', 'latinos', 'latina', 'latinas', 'hispanic', 'hispanics',
-                  'mexican', 'mexicans', 'spic', 'spics'],
+    'Indians':        ['india', 'indian', 'indians', 'jeet', 'jeets', 'pajeet', 'pajeets', 'poo in loo', 'poos', 'pajeetland'],
+    'Jews':           ['jew', 'jews', 'jewish', 'jewry', 'kike', 'kikes', 'heeb', 'heebs', 'yid', 'yids', 'rabbi', 'talmud'],
+    'White People':   ['white', 'whites', 'whiteness', 'white people', 'white man', 'white men',
+                       'white woman', 'white women', 'white race', 'aryan', 'aryans', 'white genocide',
+                       'white nationalist', 'white supremacist'],
+    'Trans People':   ['transgender', 'trans', 'troon', 'trooned', 'tranny', 'trannies', 'transsexual',
+                       'transsexuals', 'transwoman', 'transwomen', 'nonbinary', 'non-binary'],
+    'Black People':   ['black', 'blacks', 'nigger', 'niggers', 'nigga', 'niggas', 'negro', 'negroes',
+                       'african american', 'african-american'],
+    'Women':          ['woman', 'women', 'female', 'females', 'foid', 'foids', 'roastie', 'roasties',
+                       'feminist', 'feminists', 'feminism', 'femoid', 'femoids'],
+    'LGBTQ+':         ['gay', 'gays', 'lesbian', 'lesbians', 'homosexual', 'homosexuals', 'queer', 'queers',
+                       'faggot', 'faggots', 'fag', 'fags', 'sodomite', 'sodomites'],
+    'Muslims':        ['muslim', 'muslims', 'islam', 'islamic', 'islamist', 'islamists', 'mosque',
+                       'quran', 'sharia', 'jihad', 'jihadist', 'jihadists'],
+    'America':        ['america', 'american', 'americans', 'usa', 'u.s.', 'merican', 'united states'],
+    'Trump':          ['trump', 'donald trump', 'drumpf', 'maga', 'trumpism', 'trumpist', 'trumpers'],
+    'Democrats':      ['democrat', 'democrats', 'democratic party', 'biden', 'kamala', 'harris',
+                       'pelosi', 'aoc', 'liberal', 'liberals'],
+    'Russia':         ['russia', 'russian', 'russians', 'putin', 'kremlin', 'moscow'],
+    'China':          ['china', 'chinese', 'chink', 'chinks', 'ccp', 'xi jinping', 'winnie'],
+    'Israel':         ['israel', 'israeli', 'israelis', 'zionist', 'zionists', 'zionism', 'idf', 'mossad', 'netanyahu'],
+    'Palestine':      ['palestine', 'palestinian', 'palestinians', 'gaza', 'hamas', 'west bank', 'intifada'],
+    'Christianity':   ['christian', 'christians', 'christ', 'christkek', 'christkeks', 'christcuck',
+                       'christcucks', 'catholic', 'catholics', 'protestant', 'protestants', 'pope', 'church'],
+    'Ukraine':        ['ukraine', 'ukrainian', 'ukrainians', 'zelensky', 'zelenskyy', 'kiev', 'kyiv'],
+    'Latinos':        ['latino', 'latinos', 'latina', 'latinas', 'hispanic', 'hispanics',
+                       'mexican', 'mexicans', 'spic', 'spics', 'beaner', 'beaners'],
+    'Germany':        ['german', 'germany', 'deutsche', 'hitler', 'nazi', 'nazis', 'reich', 'nsdap',
+                       'third reich', 'fuhrer', 'führer', 'ss', 'gestapo'],
+    'Immigrants':     ['immigrant', 'immigrants', 'immigration', 'migrant', 'migrants', 'illegal',
+                       'illegals', 'border', 'invasion', 'great replacement', 'replacement'],
+    'Globalism':      ['globalist', 'globalists', 'globalism', 'nwo', 'new world order', 'george soros',
+                       'soros', 'davos', 'wef', 'world economic forum'],
+    'UK':             ['britain', 'british', 'england', 'english', 'uk', 'united kingdom', 'bong', 'bongs'],
+    'Asians':         ['asian', 'asians', 'gook', 'gooks', 'chink', 'zipperhead', 'korean', 'japanese'],
 }
 
 # Flat set of all variants that belong to a group (for fast exclusion)
@@ -296,6 +315,8 @@ _RAW_PATTERNS = [
                                                                                             "disease rhetoric",             2),
     (r"\b(society|nation|country|the west|civilization) (is )?(infested|infected|rotting|dying) (with|because of)\b",
                                                                                             "disease rhetoric",             2),
+    # Race-purity / mixed-race slurs
+    (r"\b(mongrels?|mudbloods?|half-?breeds?|race ?traitors?)\b",                          "dehumanization",               2),
     # Scum / filth framing
     (r"\b(absolute |total |utter )?(scum|filth|degenerates?|trash|garbage|vermin) (of|that) (society|the earth|humanity)\b",
                                                                                             "dehumanization",               2),
@@ -323,8 +344,10 @@ _RAW_PATTERNS = [
     (r"\baccident.{0,25}(happen|occur).{0,20}(to|for) (him|her|them|you|those|these)\b",  "veiled threat",                2),
     (r"\bwon'?t be around (long|much longer|forever)\b",                                    "veiled threat",                2),
     # "wouldn't last long" only fires when preceded by a target reference within 30 chars
-    (r"\b(he|she|they|this|that).{0,30}won'?t last (long|much longer|much)\b",             "veiled threat",                2),
-    (r"\b(he|she|they|this|that).{0,30}wouldn'?t (be|last) (long|much longer|much)\b",    "veiled threat",                2),
+    (r"\b(he|she|they|this|that).{0,30}won'?t last (long|much longer|much)(?! in (such|that|this|any) (getup|outfit|gear|armor|armour|clothing|attire|uniform|dress|costume))\b",
+                                                                                            "veiled threat",                2),
+    (r"\b(he|she|they|this|that).{0,30}wouldn'?t (be|last) (long|much longer|much)(?! in (such|that|this|any) (getup|outfit|gear|armor|armour|clothing|attire|uniform|dress|costume))\b",
+                                                                                            "veiled threat",                2),
     (r"\b(watch (your|their|his|her) back|eyes? in the back of (your|their|his|her) head)\b",
                                                                                             "veiled threat",                2),
     # "something might happen" only fires with a human target pronoun
@@ -347,7 +370,8 @@ _RAW_PATTERNS = [
     (r"\b(get|deserve|need|earn).{0,15}(the rope|a rope|the noose|the gallows)\b",         "coded violence (rope)",        2),
     (r"\b(rope|noose) for (them|him|her|all|every|those)\b",                               "coded violence (rope)",        2),
     # "Remove kebab" (anti-Muslim violence meme)
-    (r"\bremove (kebab|kikes?|jews?|niggers?|trannies|faggots?)\b",                        "eliminationist rhetoric",      2),
+    (r"\bremove (kebab|kikes?|jews?|niggers?|trannies|faggots?|blacks?|muslims?|immigrants?)\b",
+                                                                                            "eliminationist rhetoric",      2),
 
     # ── Tier 2: Eliminationist / cleansing language ────────────────────────────
     (r"\b(ethnic |racial |cultural )?(cleansing|purification)\b",                          "eliminationist rhetoric",      2),
@@ -358,6 +382,10 @@ _RAW_PATTERNS = [
     (r"\b(final solution|endlösung)\b",                                                    "eliminationist rhetoric",      2),
     (r"\b(demographic|racial|white) (replacement|genocide|erasure).{0,40}(must be stopped|or else|won't stand|will fight)\b",
                                                                                             "eliminationist rhetoric",      2),
+    (r"\b(demographic (replacement|genocide|invasion)|replace(ment)? (the )?(white|native|european) (population|people|race))\b",
+                                                                                            "replacement rhetoric",         2),
+    (r"\bwhite genocide is (real|happening|true|a fact)\b",                                "eliminationist rhetoric",      2),
+    (r"\bgreat replacement (is real|is happening|is true|confirmed)\b",                    "eliminationist rhetoric",      2),
 
     # ── Tier 3: Direct incitement ──────────────────────────────────────────────
     (r"\bneeds? to be (killed|shot|eliminated|exterminated|hanged?|gassed|executed|murdered|put down|taken out|liquidated|disposed of)\b",
@@ -385,6 +413,9 @@ _RAW_PATTERNS = [
     # Exterminate / liquidate / annihilate groups
     (r"\b(exterminate|liquidate|annihilate|wipe out|erase).{0,20}(them|all (of )?them|every (last )?one|the (jews?|blacks?|muslims?|trannies?|gays?|whites?))\b",
                                                                                             "direct incitement",            3),
+    # Directing someone to kill themselves
+    (r"\b(kill yourself|kys|end it( all)?|rope yourself|an hero)\b",                       "direct incitement",            3),
+    (r"\bend (your|their|his|her) (life|existence|miserable life|pathetic life)\b",         "direct incitement",            3),
     # Doxxing / target coordination
     (r"\b(find|post|share|get|here('?s| is)).{0,20}(his|her|their).{0,20}(address|location|doxx|home address|workplace|school)\b",
                                                                                             "doxxing",                      3),
@@ -1148,7 +1179,7 @@ def detect_trans(posts):
     Find all posts mentioning trans-related terms, classify each by type of
     anti-trans content via Claude, and write trans.json.
     """
-    trans_pat = _GROUP_PATTERNS['Trans']
+    trans_pat = _GROUP_PATTERNS['Trans People']
     matched = []
     for p in posts:
         raw = p.get('com', '')
@@ -2004,102 +2035,26 @@ def clean_text(raw):
     return text
 
 def update_trends(raw_comments):
-    """
-    Two-pass approach:
-      Pass 1 — NLP on a sample to discover candidate topic names.
-      Pass 2 — Raw string count of every candidate across ALL post text.
-    This gives true mention counts, not NLP detection weights.
-    """
-    # Clean every post
+    """Count topic group mentions across all posts. Deterministic — no NLP."""
     texts = []
     for raw in raw_comments:
         cleaned = clean_text(raw)
         if len(cleaned) > 5:
             texts.append(cleaned)
-
     if not texts:
         return
-
-    # Full corpus as a single lowercase string for fast counting
-    full_lower = ' '.join(texts).lower()
-
-    # NORP = Nationalities/Religious/Political groups (Jews, Muslims, Democrats, etc.)
-    # Kept intentionally for antisemitism/sentiment monitoring
-    target_labels = {'GPE', 'PERSON', 'ORG', 'NORP', 'EVENT', 'FAC', 'PRODUCT', 'LOC', 'WORK_OF_ART'}
-
-    if nlp:
-        # Pass 1: NLP on up to 2000 posts to find candidate topic names
-        candidates = set()
-        sample = texts[:2000]
-        for doc in nlp.pipe(sample, batch_size=64):
-            for ent in doc.ents:
-                if ent.label_ not in target_labels:
-                    continue
-                topic = re.sub(r'\s+', ' ', ent.text).strip()
-                if len(topic) < 5:
-                    continue
-                normalized = topic.title()
-                if normalized.lower() not in {s.lower() for s in STOP_TOPICS}:
-                    candidates.add(normalized)
-
-            for chunk in doc.noun_chunks:
-                if chunk.root.pos_ in ('PRON', 'DET') or chunk.root.is_stop:
-                    continue
-                words = [t for t in chunk if not t.is_stop and not t.is_punct and len(t.text) > 2]
-                if len(words) < 2:
-                    continue
-                phrase = ' '.join(t.text for t in words).strip().title()
-                if len(phrase) > 5 and phrase not in STOP_TOPICS:
-                    candidates.add(phrase)
-
-        _write_trends(_count_topics(candidates, texts), len(texts))
-        return
-
-    # Fallback (no spaCy): regex-find capitalized words/phrases as candidates
-    stop_lower = {w.lower() for w in STOP_TOPICS}
-    candidates = set()
-    for text in texts:
-        for phrase in re.findall(r'\b(?:[A-Z][a-z]{2,}\s+){1,3}[A-Z][a-z]{2,}\b', text):
-            if not any(w.lower() in stop_lower for w in phrase.split()):
-                candidates.add(phrase.strip())
-        for w in re.findall(r'\b[A-Z][a-z]{4,}\b', text):
-            if w.lower() not in stop_lower:
-                candidates.add(w)
-
-    _write_trends(_count_topics(candidates, texts), len(texts), fallback=True)
+    _write_trends(_count_topics(texts), len(texts))
 
 
-def _count_topics(candidates, texts):
-    """
-    Count posts per topic with grouping:
-    - Grouped topics (Jews, White, Indians, etc.) aggregate all variant spellings.
-    - Ungrouped NLP candidates count normally.
-    - Returns sorted list of (topic, count) pairs.
-    """
+def _count_topics(texts):
+    """Count posts per TOPIC_GROUPS canonical. Word-boundary matched, deterministic."""
     texts_lower = [t.lower() for t in texts]
     topic_counts = collections.Counter()
-
-    # Grouped topics — count posts containing ANY variant (word-boundary matched)
     for canonical, pattern in _GROUP_PATTERNS.items():
         count = sum(1 for tl in texts_lower if pattern.search(tl))
         if count > 0:
             topic_counts[canonical] = count
-
-    # Ungrouped candidates — skip group variants, stop words, or very short words
-    _stop_lower = {s.lower() for s in STOP_TOPICS}
-    ungrouped = {c for c in candidates
-                 if len(c) >= 5
-                 and c.lower() not in _ALL_GROUP_VARIANTS
-                 and c.lower() not in _stop_lower
-                 and c not in TOPIC_GROUPS}
-    # Use word-boundary regex so "Meth" doesn't match "method", "Oman" doesn't match "woman"
-    pat_map = {c: re.compile(r'(?<!\w)' + re.escape(c.lower()) + r'(?!\w)') for c in ungrouped}
-    for tl in texts_lower:
-        for topic, pat in pat_map.items():
-            if pat.search(tl):
-                topic_counts[topic] += 1
-
-    return [(w, c) for w, c in topic_counts.most_common(100) if len(w) > 2][:25]
+    return [(w, c) for w, c in topic_counts.most_common(25) if c > 0]
 
 def _write_trends(trends_out, post_count, fallback=False):
     label = "fallback" if fallback else f"from {post_count} posts"

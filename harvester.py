@@ -26,7 +26,7 @@ BOARD = 'pol'
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(SCRIPT_DIR, 'chudwatch.db')
 ARCHIVE_THREADS = 1400  # ~1 week of /pol/ archive (board closes ~150-200 threads/day)
-FETCH_WORKERS   = 16    # concurrent thread-fetch connections
+FETCH_WORKERS   = 64    # concurrent thread-fetch connections
 
 try:
     nlp = spacy.load("en_core_web_sm")
@@ -143,13 +143,119 @@ _GROUP_PATTERNS = {
     for canonical, variants in TOPIC_GROUPS.items()
 }
 
+# Public figures to track, grouped by category.
+# Each entry: canonical_name → (category, [name variants])
+PUBLIC_FIGURES = {
+    # US Politics
+    'Donald Trump':       ('US Politics', ['trump', 'donald trump', 'drumpf', 'blumpf', 'the donald']),
+    'Joe Biden':          ('US Politics', ['biden', 'joe biden', 'sleepy joe', 'bidet']),
+    'Kamala Harris':      ('US Politics', ['kamala', 'harris', 'kamala harris', 'cackling kamala']),
+    'Barack Obama':       ('US Politics', ['obama', 'barack obama', 'barry obama', 'obummer']),
+    'Hillary Clinton':    ('US Politics', ['hillary', 'hillary clinton', 'hitlery', 'killary', 'shillary']),
+    'Nancy Pelosi':       ('US Politics', ['pelosi', 'nancy pelosi']),
+    'AOC':                ('US Politics', ['aoc', 'alexandria ocasio', 'ocasio-cortez', 'sandy cortez']),
+    'Bernie Sanders':     ('US Politics', ['bernie', 'bernie sanders', 'bernard sanders']),
+    'Ron DeSantis':       ('US Politics', ['desantis', 'ron desantis', 'ron desanctimonious', 'meatball ron']),
+    'JD Vance':           ('US Politics', ['jd vance', 'vance', 'j.d. vance']),
+    'Gavin Newsom':       ('US Politics', ['newsom', 'gavin newsom', 'gruesome newsom']),
+    'RFK Jr.':            ('US Politics', ['rfk', 'rfk jr', 'robert kennedy', 'kennedy jr']),
+    'Tulsi Gabbard':      ('US Politics', ['tulsi', 'gabbard', 'tulsi gabbard']),
+    'Ted Cruz':           ('US Politics', ['ted cruz', 'rafael cruz', 'cancun cruz']),
+    'Marco Rubio':        ('US Politics', ['rubio', 'marco rubio', 'little marco']),
+    'MTG':                ('US Politics', ['mtg', 'marjorie taylor greene', 'marjorie greene']),
+    'Mike Pence':         ('US Politics', ['pence', 'mike pence']),
+    'Mike Johnson':       ('US Politics', ['mike johnson', 'speaker johnson']),
+    # International
+    'Vladimir Putin':     ('International', ['putin', 'vladimir putin', 'vova', 'based putin']),
+    'Volodymyr Zelensky': ('International', ['zelensky', 'zelenskyy', 'volodymyr zelensky', 'piano man']),
+    'Benjamin Netanyahu': ('International', ['netanyahu', 'bibi', 'benjamin netanyahu', 'nutter yahoo']),
+    'Emmanuel Macron':    ('International', ['macron', 'emmanuel macron']),
+    'Justin Trudeau':     ('International', ['trudeau', 'justin trudeau', 'trudy', 'castro jr', 'little potato']),
+    'Boris Johnson':      ('International', ['boris johnson', 'boris', 'bojo']),
+    'Xi Jinping':         ('International', ['xi jinping', 'xi', 'jinping', 'winnie the pooh']),
+    'Narendra Modi':      ('International', ['modi', 'narendra modi']),
+    'Kim Jong-un':        ('International', ['kim jong', 'kim jong-un', 'kim jong un', 'lil kim']),
+    'Viktor Orbán':       ('International', ['orban', 'viktor orban', 'orbán']),
+    'Giorgia Meloni':     ('International', ['meloni', 'giorgia meloni']),
+    # Tech / Billionaires
+    'Elon Musk':          ('Tech/Billionaires', ['elon musk', 'elon', 'musk', 'elmo', 'apartheid clyde']),
+    'Mark Zuckerberg':    ('Tech/Billionaires', ['zuckerberg', 'mark zuckerberg', 'zuck', 'the zuck', 'zucc']),
+    'Jeff Bezos':         ('Tech/Billionaires', ['bezos', 'jeff bezos']),
+    'Bill Gates':         ('Tech/Billionaires', ['bill gates', 'gates', 'billy gates']),
+    'George Soros':       ('Tech/Billionaires', ['soros', 'george soros']),
+    'Klaus Schwab':       ('Tech/Billionaires', ['schwab', 'klaus schwab', 'great reset guy']),
+    'Sam Altman':         ('Tech/Billionaires', ['sam altman', 'altman', 'openai ceo']),
+    # Media / Commentators
+    'Tucker Carlson':     ('Media', ['tucker carlson', 'tucker', 'tuck']),
+    'Ben Shapiro':        ('Media', ['ben shapiro', 'shapiro', 'ben shitpiro', 'daily wire']),
+    'Jordan Peterson':    ('Media', ['jordan peterson', 'peterson', 'jp', 'jbp', 'clean your room']),
+    'Alex Jones':         ('Media', ['alex jones', 'infowars', 'bill hicks']),
+    'Candace Owens':      ('Media', ['candace owens', 'candace', 'blexit']),
+    'Charlie Kirk':       ('Media', ['charlie kirk', 'charlie', 'tpusa', 'turning point']),
+    'Glenn Greenwald':    ('Media', ['glenn greenwald', 'greenwald']),
+    'Matt Walsh':         ('Media', ['matt walsh']),
+    'Steven Crowder':     ('Media', ['crowder', 'steven crowder']),
+    # Other
+    'Anthony Fauci':      ('Other', ['fauci', 'anthony fauci', 'dr fauci', 'fauchi']),
+    'Yuval Harari':       ('Other', ['yuval harari', 'harari', 'yuval noah harari']),
+    'Sam Bankman-Fried':  ('Other', ['sbf', 'sam bankman', 'bankman-fried', 'bankman fried']),
+}
+
+# Precompiled word-boundary patterns for public figure detection
+_FIGURE_PATTERNS = {
+    name: (cat, re.compile(
+        '|'.join(r'(?<!\w)' + re.escape(v) + r'(?!\w)' for v in variants),
+        re.IGNORECASE
+    ))
+    for name, (cat, variants) in PUBLIC_FIGURES.items()
+}
+
+
+def detect_public_figures(posts):
+    """Count mentions of known public figures across all posts."""
+    counts = collections.Counter()
+    thread_counts = collections.defaultdict(set)
+    for p in posts:
+        text = clean_text(p.get('com', '') or '')
+        if not text:
+            continue
+        tid = p.get('thread_id')
+        for name, (cat, pattern) in _FIGURE_PATTERNS.items():
+            if pattern.search(text):
+                counts[name] += 1
+                if tid:
+                    thread_counts[name].add(tid)
+
+    results = []
+    for name, count in counts.most_common():
+        cat = PUBLIC_FIGURES[name][0]
+        results.append({
+            'name':         name,
+            'category':     cat,
+            'post_count':   count,
+            'thread_count': len(thread_counts[name]),
+        })
+
+    out = {
+        'updated': utcnow(),
+        'total_posts': sum(1 for p in posts if p.get('com')),
+        'figures': results,
+    }
+    dest = os.path.join(SCRIPT_DIR, 'public_figures.json')
+    with open(dest + '.tmp', 'w') as f:
+        json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Public figures: {len(results)} mentioned")
+
+
 # --- HTTP server & refresh signal -------------------------------------------
 
 PORT = 8080
 refresh_event = threading.Event()
 
-def write_progress(status, current, total, posts, message, stats=None):
-    pct = int(current / total * 100) if total > 0 else 0
+def write_progress(status, current, total, posts, message, stats=None, pct=None):
+    if pct is None:
+        pct = int(current / total * 100) if total > 0 else 0
     data = {"status": status, "current": current, "total": total,
             "posts": posts, "pct": pct, "message": message, "ts": time.time()}
     if stats:
@@ -1769,7 +1875,7 @@ def write_longitudinal(harvest_id):
         c = conn.cursor()
 
         # All harvests
-        c.execute('SELECT id, started_at, completed_at, post_count, live_count, archive_count FROM harvests ORDER BY id')
+        c.execute('SELECT id, started_at, completed_at, post_count, live_count, archive_count, radicalization_index FROM harvests ORDER BY id')
         rows = c.fetchall()
 
         # Events
@@ -1786,6 +1892,7 @@ def write_longitudinal(harvest_id):
                 "top_topics": [],
                 "topic_series": {},
                 "signal_series": {},
+                "radicalization_index": [],
                 "events": [],
             }
             dest = os.path.join(SCRIPT_DIR, 'longitudinal.json')
@@ -1843,19 +1950,21 @@ def write_longitudinal(harvest_id):
 
         harvests_out = [
             {"id": r[0], "started_at": r[1], "completed_at": r[2],
-             "post_count": r[3], "live_count": r[4], "archive_count": r[5]}
+             "post_count": r[3], "live_count": r[4], "archive_count": r[5],
+             "radicalization_index": r[6] or 0}
             for r in last_50_rows
         ]
 
         out = {
-            "updated":       utcnow(),
-            "harvest_count": len(rows),
-            "harvests":      harvests_out,
-            "labels":        labels,
-            "top_topics":    top_topics,
-            "topic_series":  topic_series,
-            "signal_series": signal_series,
-            "events":        events,
+            "updated":             utcnow(),
+            "harvest_count":       len(rows),
+            "harvests":            harvests_out,
+            "labels":              labels,
+            "top_topics":          top_topics,
+            "topic_series":        topic_series,
+            "signal_series":       signal_series,
+            "radicalization_index": [r[6] or 0 for r in last_50_rows],
+            "events":              events,
         }
         dest = os.path.join(SCRIPT_DIR, 'longitudinal.json')
         tmp  = dest + '.tmp'
@@ -1897,6 +2006,15 @@ def _record_harvest_stats(harvest_id, posts, signal_results):
             c.execute('INSERT OR REPLACE INTO harvest_signals (harvest_id, tier, category, count) VALUES (?,?,?,?)',
                       (harvest_id, tier, cat, count))
 
+        # Radicalization index: weighted signal density per 1000 posts
+        t2 = sum(1 for s in signal_results if s.get('max_tier') == 2)
+        t3 = sum(1 for s in signal_results if s.get('max_tier') == 3)
+        t4 = sum(1 for s in signal_results if s.get('max_tier') == 4)
+        total = max(len(posts), 1)
+        rad_index = round((t2 * 1 + t3 * 3 + t4 * 5) / total * 1000, 2)
+        c.execute('UPDATE harvests SET radicalization_index=?, completed_at=? WHERE id=?',
+                  (rad_index, time.time(), harvest_id))
+
         conn.commit()
         conn.close()
     except Exception as e:
@@ -1907,6 +2025,8 @@ def _record_harvest_stats(harvest_id, posts, signal_results):
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
+    conn.execute('PRAGMA journal_mode=WAL')
+    conn.execute('PRAGMA synchronous=NORMAL')
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS posts
                  (post_id INTEGER PRIMARY KEY, thread_id INTEGER, name TEXT,
@@ -1924,21 +2044,242 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS events
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   event_date TEXT, title TEXT, description TEXT, created_at REAL)''')
+
+    # Radicalization index column on harvests (migration-safe)
+    try:
+        c.execute('ALTER TABLE harvests ADD COLUMN radicalization_index REAL DEFAULT 0')
+    except sqlite3.OperationalError:
+        pass
+
+    # Per-harvest conspiracy thread counts for contagion tracking
+    c.execute('''CREATE TABLE IF NOT EXISTS harvest_conspiracies
+                 (harvest_id INTEGER, conspiracy_id TEXT, thread_count INTEGER,
+                  PRIMARY KEY (harvest_id, conspiracy_id))''')
+
     conn.commit()
     conn.close()
 
 def utcnow():
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
 
+def detect_pipeline(posts, signal_results):
+    """
+    Find gateway posts: those using deniability/entry framing alongside T3/T4 incitement.
+    These bridge normie grievance language into violence-adjacent content.
+    """
+    signal_map = {s['post_id']: s for s in signal_results}
+
+    deniability_cats = {
+        'minecraft disclaimer', 'hypothetical framing', 'fiction disclaimer',
+        'joke disclaimer', 'not-serious disclaimer', 'legal disclaimer'
+    }
+    jargon_t1_terms = [t.lower() for t in JARGON_TIERS[1]['terms']]
+    conspiracy_t1_keywords = [kw for cid, (kws, label, tier) in CONSPIRACY_DEFS.items()
+                               if tier == 1 for kw in kws]
+
+    pipeline_posts = []
+    seen_ids = set()
+    pathways = collections.Counter()  # (entry_type, exit_tier)
+
+    for post_no, sig in signal_map.items():
+        if sig.get('max_tier', 0) < 3:
+            continue
+        cats = set(sig.get('categories', []))
+        text = sig.get('comment', '').lower()
+        exit_tier = sig.get('max_tier', 0)
+
+        entry_types = []
+
+        # Check deniability framing
+        dc = cats & deniability_cats
+        if dc:
+            entry_types.extend([f'deniability:{c}' for c in dc])
+
+        # Check T1 jargon
+        jt = [t for t in jargon_t1_terms if t in text]
+        if jt:
+            entry_types.append(f'jargon:{jt[0]}')
+
+        # Check T1 conspiracy framing
+        ct = [kw for kw in conspiracy_t1_keywords if kw in text]
+        if ct:
+            entry_types.append(f'conspiracy:{ct[0]}')
+
+        if entry_types and post_no not in seen_ids:
+            seen_ids.add(post_no)
+            for et in entry_types[:2]:
+                pathways[(et.split(':')[0], f'T{exit_tier}')] += 1
+            pipeline_posts.append({
+                'post_id':      post_no,
+                'thread_id':    sig.get('thread_id'),
+                'entry_types':  entry_types[:3],
+                'exit_tier':    exit_tier,
+                'categories':   list(cats),
+                'triggers':     sig.get('triggers', []),
+                'snippet':      sig.get('snippet', ''),
+                'target_groups': sig.get('target_groups', []),
+            })
+
+    pipeline_posts.sort(key=lambda x: -x['exit_tier'])
+    top_pathways = [{'from': k[0], 'to': k[1], 'count': v}
+                    for k, v in pathways.most_common(20)]
+    gateway_rate = round(len(pipeline_posts) / max(len(signal_results), 1) * 100, 1)
+
+    out = {
+        'updated':      utcnow(),
+        'count':        len(pipeline_posts),
+        'gateway_rate': gateway_rate,
+        'pathways':     top_pathways,
+        'posts':        pipeline_posts[:200],
+    }
+    dest = os.path.join(SCRIPT_DIR, 'pipeline.json')
+    with open(dest + '.tmp', 'w') as f: json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Pipeline: {len(pipeline_posts)} gateway posts ({gateway_rate}% of signals)")
+
+
+def detect_poster_arcs(posts, signal_results):
+    """
+    Track individual poster escalation within threads using 4chan's per-thread poster ID.
+    Posters whose signal tier rises from early to late posts = radicalization arc.
+    """
+    tier_map = {s['post_id']: s.get('max_tier', 0) for s in signal_results}
+
+    poster_posts = collections.defaultdict(list)
+    for p in posts:
+        pid = p.get('id', '')
+        tid = p.get('thread_id')
+        if not pid or not tid or pid in ('000000', 'Developer', 'Mod', 'Admin'):
+            continue
+        poster_posts[(tid, pid)].append(p)
+
+    escalators = []
+    arc_distribution = collections.Counter()
+
+    for (tid, pid), pposts in poster_posts.items():
+        if len(pposts) < 3:
+            continue
+        pposts_sorted = sorted(pposts, key=lambda p: p.get('no', 0))
+        n = len(pposts_sorted)
+        split = max(1, n // 3)
+        early = pposts_sorted[:split]
+        late  = pposts_sorted[n - split:]
+
+        early_tiers = [tier_map.get(p['no'], 0) for p in early]
+        late_tiers  = [tier_map.get(p['no'], 0) for p in late]
+        early_avg = sum(early_tiers) / len(early_tiers)
+        late_avg  = sum(late_tiers)  / len(late_tiers)
+        max_tier  = max((tier_map.get(p['no'], 0) for p in pposts_sorted), default=0)
+
+        arc_distribution[(round(early_avg), round(late_avg))] += 1
+
+        if late_avg > early_avg + 0.5 and max_tier >= 2:
+            escalators.append({
+                'thread_id':  tid,
+                'poster_hash': str(hash(pid))[-6:],  # anonymize but keep consistent
+                'post_count': n,
+                'early_avg':  round(early_avg, 2),
+                'late_avg':   round(late_avg, 2),
+                'max_tier':   max_tier,
+                'delta':      round(late_avg - early_avg, 2),
+                'sample_posts': [
+                    {'no': p['no'], 'text': clean_text(p.get('com','') or '')[:150]}
+                    for p in (early[:1] + late[-1:])
+                ],
+            })
+
+    escalators.sort(key=lambda x: (-x['delta'], -x['max_tier']))
+    arc_table = [{'start': k[0], 'end': k[1], 'count': v}
+                 for k, v in arc_distribution.items()]
+    total_tracked = len(poster_posts)
+
+    out = {
+        'updated':            utcnow(),
+        'escalator_count':    len(escalators),
+        'total_tracked':      total_tracked,
+        'escalation_rate':    round(len(escalators) / max(total_tracked, 1) * 100, 1),
+        'arc_distribution':   arc_table,
+        'escalators':         escalators[:100],
+    }
+    dest = os.path.join(SCRIPT_DIR, 'poster_arcs.json')
+    with open(dest + '.tmp', 'w') as f: json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Poster arcs: {len(escalators)} escalators / {total_tracked} posters ({out['escalation_rate']}%)")
+
+
+def detect_contagion(posts, harvest_id):
+    """
+    Per narrative, count how many distinct threads contain it this harvest.
+    Adoption rate = thread_count / total_threads.
+    """
+    thread_narratives = collections.defaultdict(set)
+    total_threads = len({p.get('thread_id') for p in posts if p.get('thread_id')})
+
+    for p in posts:
+        tid = p.get('thread_id')
+        if not tid: continue
+        text = clean_text(p.get('com', '') or '').lower()
+        if not text: continue
+        for cid, (keywords, label, tier) in CONSPIRACY_DEFS.items():
+            if any(kw in text for kw in keywords):
+                thread_narratives[cid].add(tid)
+
+    # Store in DB
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    for cid, threads in thread_narratives.items():
+        c.execute('INSERT OR REPLACE INTO harvest_conspiracies VALUES (?,?,?)',
+                  (harvest_id, cid, len(threads)))
+    conn.commit()
+
+    # Build output with velocity (compare to previous harvest)
+    # Get previous harvest contagion from DB
+    prev = {}
+    c.execute('''SELECT hc.conspiracy_id, hc.thread_count
+                 FROM harvest_conspiracies hc
+                 JOIN harvests h ON hc.harvest_id = h.id
+                 WHERE hc.harvest_id < ?
+                 ORDER BY hc.harvest_id DESC''', (harvest_id,))
+    for row in c.fetchall():
+        if row[0] not in prev:
+            prev[row[0]] = row[1]
+    conn.close()
+
+    results = []
+    for cid, threads in sorted(thread_narratives.items(), key=lambda x: -len(x[1])):
+        label, tier = CONSPIRACY_DEFS[cid][1], CONSPIRACY_DEFS[cid][2]
+        tc = len(threads)
+        prev_tc = prev.get(cid, tc)
+        velocity = round((tc - prev_tc) / max(prev_tc, 1) * 100, 1)
+        results.append({
+            'id':            cid,
+            'label':         label,
+            'tier':          tier,
+            'thread_count':  tc,
+            'adoption_rate': round(tc / max(total_threads, 1) * 100, 1),
+            'velocity':      velocity,  # % change vs last harvest
+        })
+
+    out = {
+        'updated':       utcnow(),
+        'total_threads': total_threads,
+        'narratives':    results,
+    }
+    dest = os.path.join(SCRIPT_DIR, 'contagion.json')
+    with open(dest + '.tmp', 'w') as f: json.dump(out, f)
+    os.replace(dest + '.tmp', dest)
+    print(f"[+] Contagion: {len(results)} narratives across {total_threads} threads")
+
+
 def save_and_analyze(posts):
     conn = sqlite3.connect(DB_FILE)
+    conn.execute('PRAGMA journal_mode=WAL')
     c = conn.cursor()
 
     now = utcnow()
-    for p in posts:
-        c.execute("INSERT OR IGNORE INTO posts VALUES (?,?,?,?,?,?)",
-                  (p['no'], p.get('thread_id'), p.get('name', 'Anonymous'),
-                   p.get('now', ''), p.get('com', ''), now))
+    c.executemany("INSERT OR IGNORE INTO posts VALUES (?,?,?,?,?,?)",
+                  [(p['no'], p.get('thread_id'), p.get('name', 'Anonymous'),
+                    p.get('now', ''), p.get('com', ''), now) for p in posts])
     conn.commit()
 
     # Velocity = posts with actual content in this batch
@@ -1974,30 +2315,50 @@ def save_and_analyze(posts):
         for k in list(TOPIC_GROUPS.keys())
     ]
     top_topics_quick = sorted([t for t in top_topics_quick if t[1] > 0], key=lambda x: -x[1])[:10]
-    write_progress("analyzing", n, n, n,
+    write_progress("analyzing", 0, 100, n,
                    f"Analyzing {n:,} posts — computing signals...",
-                   stats={"posts": n, "top_topics": top_topics_quick})
+                   stats={"posts": n, "top_topics": top_topics_quick}, pct=74)
 
     signal_results_raw = detect_signals(posts)
     t3 = sum(1 for s in (signal_results_raw or []) if s.get('max_tier') == 3)
     t4 = sum(1 for s in (signal_results_raw or []) if s.get('max_tier') == 4)
-    write_progress("analyzing", n, n, n,
+    write_progress("analyzing", 0, 100, n,
                    f"Running jargon, conspiracy, astroturf analysis...",
                    stats={"posts": n, "top_topics": top_topics_quick,
-                          "signals": {"T3": t3, "T4": t4, "total": len(signal_results_raw or [])}})
+                          "signals": {"T3": t3, "T4": t4, "total": len(signal_results_raw or [])}}, pct=80)
 
-    detect_jargon(posts)
-    detect_conspiracies(posts)
-    detect_memes(posts)
-    detect_astroturf(posts)
-    detect_trans(posts)
-    detect_flags(posts)
-    detect_timeheat(posts)
-    detect_tripcodes(posts)
-    detect_cooccurrence(posts)
-    detect_thread_arcs(posts)
-    detect_narratives(posts)
-    _record_harvest_stats(_current_harvest_id, posts, signal_results_raw or [])
+    sigs = signal_results_raw or []
+    # Wave 1: all functions independent of signal_results — run in parallel
+    wave1 = [
+        lambda: detect_jargon(posts),
+        lambda: detect_conspiracies(posts),
+        lambda: detect_memes(posts),
+        lambda: detect_astroturf(posts),
+        lambda: detect_trans(posts),
+        lambda: detect_flags(posts),
+        lambda: detect_timeheat(posts),
+        lambda: detect_tripcodes(posts),
+        lambda: detect_cooccurrence(posts),
+        lambda: detect_thread_arcs(posts),
+        lambda: detect_narratives(posts),
+        lambda: detect_public_figures(posts),
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(wave1)) as ex:
+        futs = [ex.submit(fn) for fn in wave1]
+        for f in concurrent.futures.as_completed(futs):
+            f.result()  # re-raise any exception
+
+    # Wave 2: functions that depend on signal_results — also parallelizable
+    wave2 = [
+        lambda: detect_pipeline(posts, sigs),
+        lambda: detect_poster_arcs(posts, sigs),
+        lambda: detect_contagion(posts, _current_harvest_id),
+        lambda: _record_harvest_stats(_current_harvest_id, posts, sigs),
+    ]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(wave2)) as ex:
+        futs = [ex.submit(fn) for fn in wave2]
+        for f in concurrent.futures.as_completed(futs):
+            f.result()
 
     # Write ALL posts from the current batch (include flag fields for the viewer)
     all_posts = [
@@ -2056,7 +2417,11 @@ def _count_topics(texts):
             topic_counts[canonical] = count
     return [(w, c) for w, c in topic_counts.most_common(25) if c > 0]
 
+_VALID_TREND_LABELS = set(TOPIC_GROUPS.keys())
+
 def _write_trends(trends_out, post_count, fallback=False):
+    # Hard whitelist — only TOPIC_GROUPS canonical names allowed, ever
+    trends_out = [(w, c) for w, c in trends_out if w in _VALID_TREND_LABELS]
     label = "fallback" if fallback else f"from {post_count} posts"
     print(f"[+] Trending topics ({len(trends_out)}, {label}):")
     for topic, count in trends_out[:10]:
@@ -2073,6 +2438,8 @@ _GENERATED_FILES = (
     'threads.json', 'memes.json', 'astroturf.json', 'pulse.json',
     'trans.json', 'flags.json', 'timeheat.json', 'tripcodes.json', 'cooccur.json',
     'arcs.json', 'narratives.json', 'longitudinal.json',
+    'pipeline.json', 'poster_arcs.json', 'contagion.json',
+    'public_figures.json',
 )
 
 def _clear_generated_files():
@@ -2156,8 +2523,10 @@ def run_harvest(archive_count=ARCHIVE_THREADS):
             live_set  = set(live_ids)
             thread_ids = live_ids + [tid for tid in archive_ids if tid not in live_set]
             total = len(thread_ids)
+            # Virtual total: fetch = 70% of bar, analysis = 70-95%, writing = 95-100%
+            vtotal = round(total / 0.70)
             print(f"[*] {len(live_ids)} live + {len(archive_ids)} archived = {total} threads total")
-            write_progress("harvesting", 0, total, 0,
+            write_progress("harvesting", 0, vtotal, 0,
                            f"Fetching {total} threads ({FETCH_WORKERS} parallel)...")
 
             all_posts = []
@@ -2177,15 +2546,19 @@ def run_harvest(archive_count=ARCHIVE_THREADS):
                     if done % 20 == 0:
                         msg = f"Downloading threads: {done}/{total} — {len(all_posts):,} posts"
                         print(f"[ {done}/{total} | {len(all_posts):,} posts ]")
-                        write_progress("harvesting", done, total, len(all_posts), msg)
+                        write_progress("harvesting", done, vtotal, len(all_posts), msg)
 
             if refresh_event.is_set():
                 continue
 
             print(f"[+] Harvested {len(all_posts):,} posts from {total} threads")
-            write_progress("analyzing", total, total, len(all_posts),
-                           f"Analyzing {len(all_posts):,} posts for trending topics...")
+            # 70% → 75%: trending + signals
+            write_progress("analyzing", round(vtotal * 0.72), vtotal, len(all_posts),
+                           f"Analyzing {len(all_posts):,} posts — trending & signals...")
             save_and_analyze(all_posts)
+            # 95%: writing posts + thread summaries
+            write_progress("analyzing", round(vtotal * 0.95), vtotal, len(all_posts),
+                           f"Writing {len(all_posts):,} posts & thread summaries...")
             save_thread_summaries(catalog_threads, all_posts)
 
             # Update harvest record with completion stats
@@ -2221,11 +2594,32 @@ if __name__ == "__main__":
                     help='Live + 600 archive threads (~750 total, default)')
     args = ap.parse_args()
 
+    # Kill any existing harvester instance before starting
+    import signal as _signal
+    pid_file = os.path.join(SCRIPT_DIR, 'harvester.pid')
+    if os.path.exists(pid_file):
+        try:
+            old_pid = int(open(pid_file).read().strip())
+            if old_pid != os.getpid():
+                os.kill(old_pid, _signal.SIGTERM)
+                print(f"[*] Killed old harvester (PID {old_pid})")
+                time.sleep(1)
+        except (ProcessLookupError, ValueError):
+            pass
+    with open(pid_file, 'w') as f:
+        f.write(str(os.getpid()))
+
     if args.minimal:
         n_archive = 0
     elif args.medium:
         n_archive = 200
     else:
-        n_archive = ARCHIVE_THREADS  # 600
+        n_archive = ARCHIVE_THREADS
 
-    run_harvest(archive_count=n_archive)
+    try:
+        run_harvest(archive_count=n_archive)
+    finally:
+        try:
+            os.remove(pid_file)
+        except FileNotFoundError:
+            pass

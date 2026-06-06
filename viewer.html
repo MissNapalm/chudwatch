@@ -211,13 +211,6 @@
         <div class="card">
             <strong>Trending:</strong> <span id="trends"></span>
         </div>
-        <div id="newDataBanner" style="display:none;background:#1a3a1a;color:#5cb85c;padding:8px 16px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
-            <span>New harvest data available</span>
-            <div style="display:flex;gap:8px">
-                <button onclick="loadNewData()" style="background:#5cb85c;color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold">Load new data</button>
-                <button onclick="this.closest('#newDataBanner').style.display='none'" style="background:transparent;color:#5cb85c;border:1px solid #5cb85c;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px">Dismiss</button>
-            </div>
-        </div>
         <div class="search-area">
             <input type="text" id="search" placeholder="Search posts..." onkeydown="if(event.key==='Enter') render()">
             <button onclick="render()">Search</button>
@@ -230,6 +223,8 @@
             <button class="tab-btn"         data-tab="longitudinal" onclick="switchTab('longitudinal')">📈 Longitudinal</button>
             <button class="tab-btn"         data-tab="narratives"   onclick="switchTab('narratives')">🎯 Narratives</button>
             <button class="tab-btn"         data-tab="arcs"         onclick="switchTab('arcs')">🧵 Arcs</button>
+            <button class="tab-btn"         data-tab="radicalization" onclick="switchTab('radicalization')">⚠️ Radicalization</button>
+            <button class="tab-btn"         data-tab="figures"      onclick="switchTab('figures')">👤 Figures</button>
             <button class="tab-btn"         data-tab="bubbles"      onclick="switchTab('bubbles')">Bubbles</button>
             <button class="tab-btn"         data-tab="memes"        onclick="switchTab('memes')">Memes</button>
             <button class="tab-btn danger"  data-tab="signals"      onclick="switchTab('signals')">⚠ Signals</button>
@@ -250,6 +245,8 @@
         <div id="longitudinal" class="tab-content"></div>
         <div id="narratives"   class="tab-content"></div>
         <div id="arcs"         class="tab-content"></div>
+        <div id="radicalization" class="tab-content"></div>
+        <div id="figures"      class="tab-content"></div>
         <div id="bubbles"      class="tab-content"></div>
         <div id="memes"        class="tab-content"></div>
         <div id="signals"      class="tab-content"></div>
@@ -266,6 +263,10 @@
 
     <script>
         let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [], ASTROTURF = {}, PULSE = {}, TRANS = {}, FLAGS = {}, TIMEHEAT = {}, TRIPCODES = {}, COOCCUR = {}, LONGITUDINAL = {}, ARCS = {}, NARRATIVES = {};
+        let PIPELINE = {};
+        let POSTER_ARCS = {};
+        let CONTAGION = {};
+        let PUBLIC_FIGURES = {};
         let _lastUpdated = null;   // null = never rendered; frozen after first render until user explicitly reloads
         let _dataLoadedAt = 0;     // epoch-seconds when data was last rendered; used to detect newer harvests
         let _loadLock = false;     // prevent concurrent load() calls
@@ -285,7 +286,8 @@
                                 countries: renderCountries, boardflags: renderBoardFlags,
                                 patterns: renderPatterns, aisummary: renderAiSummary,
                                 longitudinal: renderLongitudinal, narratives: renderNarratives,
-                                arcs: renderArcs, export: renderExport, method: renderMethod };
+                                arcs: renderArcs, radicalization: renderRadicalization, figures: renderFigures,
+                                export: renderExport, method: renderMethod };
             (renderers[tab] || render)();
         }
 
@@ -295,7 +297,7 @@
             _loadLock = true;
             try {
                 const t = Date.now();
-                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes','astroturf','pulse','trans','flags','timeheat','tripcodes','cooccur','longitudinal','arcs','narratives'];
+                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes','astroturf','pulse','trans','flags','timeheat','tripcodes','cooccur','longitudinal','arcs','narratives','pipeline','poster_arcs','contagion','public_figures'];
                 const responses = await Promise.all(files.map(f => fetch(`${f}.json?t=${t}`)));
                 if (!responses[0].ok || !responses[1].ok) throw new Error('Core data missing');
 
@@ -319,6 +321,10 @@
                 LONGITUDINAL = responses[15].ok ? await responses[15].json().catch(()=>({})) : {};
                 ARCS         = responses[16].ok ? await responses[16].json().catch(()=>({})) : {};
                 NARRATIVES   = responses[17].ok ? await responses[17].json().catch(()=>({})) : {};
+                PIPELINE     = responses[18].ok ? await responses[18].json().catch(()=>({})) : {};
+                POSTER_ARCS  = responses[19].ok ? await responses[19].json().catch(()=>({})) : {};
+                CONTAGION      = responses[20].ok ? await responses[20].json().catch(()=>({})) : {};
+                PUBLIC_FIGURES = responses[21].ok ? await responses[21].json().catch(()=>({})) : {};
 
                 const newUpdated = JARGON.updated || met.updated || '';
                 const isFirstLoad = _lastUpdated === null;
@@ -327,7 +333,6 @@
 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('progressStats').innerHTML = '';
-                document.getElementById('newDataBanner').style.display = 'none';
                 document.getElementById('statusBar').textContent =
                     `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · fetched ${newUpdated} · frozen`;
 
@@ -340,7 +345,6 @@
                     if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
                     const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
                     switchTab(activeTab);
-                    startBackgroundCheck();
                 }
             } catch(e) {
                 if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
@@ -759,26 +763,6 @@
         // ── Progress polling ──────────────────────────────────────────────────
         let progressInterval = null;
         let checkInterval = null;
-
-        function startBackgroundCheck() {
-            if (checkInterval) return;
-            checkInterval = setInterval(async () => {
-                try {
-                    const r = await fetch(`progress.json?t=${Date.now()}`);
-                    if (!r.ok) return;
-                    const p = await r.json();
-                    if ((p.status === 'sleeping' || p.status === 'done') && (p.ts || 0) > _dataLoadedAt) {
-                        document.getElementById('newDataBanner').style.display = 'flex';
-                    }
-                } catch(e) {}
-            }, 15000);
-        }
-
-        async function loadNewData() {
-            document.getElementById('newDataBanner').style.display = 'none';
-            _lastUpdated = null;
-            await load();
-        }
 
         function startProgressPolling() {
             if (progressInterval) return;
@@ -1431,6 +1415,244 @@
             el.innerHTML = html;
         }
 
+        // ── Radicalization ────────────────────────────────────────────────────
+        function renderRadicalization() {
+            const el = document.getElementById('radicalization');
+            const pipe = PIPELINE;
+            const arcs = POSTER_ARCS;
+            const cont = CONTAGION;
+            const long = LONGITUDINAL;
+
+            // ── Radicalization Index Chart ─────────────────────────────────────────
+            const radSeries = long.radicalization_index || [];
+            const harvDates = long.harvest_dates || long.dates || [];
+            const events    = long.events || [];
+
+            let indexChart = '';
+            if (radSeries.length > 1) {
+                const W = 700, H = 140, pad = { t:16, r:20, b:32, l:50 };
+                const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+                const maxV = Math.max(...radSeries, 1);
+                const xS = i => pad.l + (i / (radSeries.length - 1)) * cw;
+                const yS = v => pad.t + ch - (v / maxV) * ch;
+                const pts = radSeries.map((v,i) => `${xS(i)},${yS(v)}`).join(' ');
+
+                // Event markers
+                let eventLines = '';
+                events.forEach(ev => {
+                    // Find the harvest index closest to event date
+                    const evDate = ev.date;
+                    const idx = harvDates.findIndex(d => d >= evDate);
+                    if (idx >= 0 && idx < radSeries.length) {
+                        const x = xS(idx);
+                        eventLines += `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${pad.t+ch}" stroke="#5cb85c" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>
+                <text x="${x+3}" y="${pad.t+10}" fill="#5cb85c" font-size="9" font-family="monospace">${esc(ev.title.slice(0,20))}</text>`;
+                    }
+                });
+
+                indexChart = `
+        <h3 style="margin:0 0 6px;font-size:13px;color:#c8a96e">Radicalization Index over time <span style="color:#888;font-weight:normal;font-size:11px">(T2×1 + T3×3 + T4×5 per 1 000 posts)</span></h3>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;background:#1a1a1a;border-radius:4px;display:block">
+            <polyline points="${pts}" fill="none" stroke="#e05" stroke-width="2"/>
+            ${eventLines}
+            <text x="${pad.l-4}" y="${pad.t}" fill="#888" font-size="9" text-anchor="end">${Math.round(maxV)}</text>
+            <text x="${pad.l-4}" y="${pad.t+ch}" fill="#888" font-size="9" text-anchor="end">0</text>
+        </svg>`;
+            } else {
+                indexChart = '<div class="muted">Not enough harvests yet to show index trend.</div>';
+            }
+
+            // ── Pipeline Posts ────────────────────────────────────────────────────
+            const pipePosts = pipe.posts || [];
+            const pipeCount = pipe.count || 0;
+            const gatewayRate = pipe.gateway_rate || 0;
+            const pathways = pipe.pathways || [];
+
+            let pathwayHtml = '';
+            if (pathways.length) {
+                pathwayHtml = `<div style="margin:8px 0;font-size:12px;color:#aaa">
+            Top gateway pathways: ${pathways.slice(0,5).map(p =>
+                `<span style="background:#2a1a0a;padding:2px 6px;border-radius:3px;margin-right:4px">
+                    ${esc(p.from)} → ${esc(p.to)} <b>(${p.count})</b>
+                </span>`).join('')}
+        </div>`;
+            }
+
+            const pipeHtml = pipePosts.slice(0,50).map(p => {
+                const tierCls = ['','t1-badge','t2-badge','t3-badge','t4-badge'][p.exit_tier] || 't1-badge';
+                const entryTags = (p.entry_types||[]).map(e =>
+                    `<span style="background:#1a2a1a;color:#5cb85c;font-size:10px;padding:1px 5px;border-radius:2px;margin-right:3px">${esc(e)}</span>`).join('');
+                return `<div class="signal-card" style="border-left:3px solid #5cb85c;margin-bottom:8px">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+                <span class="tier-badge ${tierCls}">T${p.exit_tier}</span>
+                ${entryTags}
+                <span style="color:#888;font-size:11px">→ thread ${p.thread_id}</span>
+            </div>
+            <div style="font-size:12px;color:#ccc;line-height:1.5">${esc(p.snippet||'').slice(0,200)}</div>
+        </div>`;
+            }).join('');
+
+            // ── Poster Arc Distribution ───────────────────────────────────────────
+            const arcDist = arcs.arc_distribution || [];
+            const escalators = arcs.escalators || [];
+            const escRate = arcs.escalation_rate || 0;
+
+            // Build arc distribution grid
+            const tiers = [0,1,2,3,4];
+            let arcGrid = '<table style="font-size:11px;border-collapse:collapse;margin:8px 0"><tr><th style="padding:3px 8px;color:#888">Start→End</th>';
+            tiers.forEach(t => { arcGrid += `<th style="padding:3px 8px;color:#888">T${t}</th>`; });
+            arcGrid += '</tr>';
+            tiers.forEach(start => {
+                arcGrid += `<tr><td style="padding:3px 8px;color:#888;font-weight:bold">T${start}</td>`;
+                tiers.forEach(end => {
+                    const row = arcDist.find(r => r.start === start && r.end === end);
+                    const count = row ? row.count : 0;
+                    const bg = count > 0 && end > start ? `background:rgba(220,0,0,${Math.min(count/10,0.6)})` : '';
+                    arcGrid += `<td style="padding:3px 8px;text-align:center;${bg}">${count||''}</td>`;
+                });
+                arcGrid += '</tr>';
+            });
+            arcGrid += '</table>';
+
+            const escalatorHtml = escalators.slice(0,15).map(e => {
+                const delta = e.delta > 0 ? `<span style="color:#e05">▲ +${e.delta}</span>` : '';
+                const sample = (e.sample_posts||[]).map(sp =>
+                    `<div style="font-size:11px;color:#888;margin-top:2px;padding-left:8px;border-left:2px solid #333">${esc((sp.text||'').slice(0,120))}</div>`
+                ).join('');
+                return `<div style="background:#1a1a1a;border-radius:4px;padding:8px;margin-bottom:6px;font-size:12px">
+            <span style="color:#c8a96e">Poster #${esc(e.poster_hash)}</span>
+            <span style="color:#888;margin:0 8px">in thread ${e.thread_id}</span>
+            <span style="color:#aaa">${e.post_count} posts · T${e.early_avg}→T${e.late_avg}</span> ${delta}
+            ${sample}
+        </div>`;
+            }).join('');
+
+            // ── Narrative Contagion ───────────────────────────────────────────────
+            const narratives = cont.narratives || [];
+            const totalThreads = cont.total_threads || 0;
+
+            const contagionRows = narratives.slice(0,20).map(n => {
+                const velColor = n.velocity > 20 ? '#e05' : n.velocity > 0 ? '#c8a96e' : '#5cb85c';
+                const vel = n.velocity > 0 ? `+${n.velocity}%` : `${n.velocity}%`;
+                return `<tr>
+            <td style="padding:4px 8px;color:#ccc">${esc(n.label)}</td>
+            <td style="padding:4px 8px;text-align:center;color:#888">T${n.tier}</td>
+            <td style="padding:4px 8px;text-align:right;color:#c8a96e">${n.thread_count}</td>
+            <td style="padding:4px 8px;text-align:right;color:#aaa">${n.adoption_rate}%</td>
+            <td style="padding:4px 8px;text-align:right;color:${velColor}">${vel}</td>
+        </tr>`;
+            }).join('');
+
+            // ── Render ────────────────────────────────────────────────────────────
+            el.innerHTML = `
+    <div class="card">
+        <h2 style="margin:0 0 12px;color:#e05;font-size:15px">Radicalization Analysis</h2>
+        ${indexChart}
+    </div>
+
+    <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 4px;font-size:13px;color:#c8a96e">Pipeline Posts
+            <span style="color:#888;font-weight:normal;font-size:11px">${pipeCount} gateway posts · ${gatewayRate}% of all signals</span>
+        </h3>
+        <p style="font-size:12px;color:#888;margin:0 0 8px">Posts using entry-level deniability or conspiracy framing alongside T3/T4 incitement — the normalization-to-violence bridge.</p>
+        ${pathwayHtml}
+        ${pipeHtml || '<div class="muted">No pipeline posts detected.</div>'}
+    </div>
+
+    <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 4px;font-size:13px;color:#c8a96e">Poster Escalation Arcs
+            <span style="color:#888;font-weight:normal;font-size:11px">${arcs.escalator_count||0} escalators / ${arcs.total_tracked||0} tracked · ${escRate}% escalation rate</span>
+        </h3>
+        <p style="font-size:12px;color:#888;margin:0 0 8px">Posters whose signal tier rises from early to late posts within a thread. Red cells = escalation paths.</p>
+        ${arcGrid}
+        ${escalatorHtml || '<div class="muted">No escalators detected.</div>'}
+    </div>
+
+    <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 4px;font-size:13px;color:#c8a96e">Narrative Contagion
+            <span style="color:#888;font-weight:normal;font-size:11px">across ${totalThreads} threads</span>
+        </h3>
+        <p style="font-size:12px;color:#888;margin:0 0 8px">How many threads contain each conspiracy narrative. Velocity = % change vs previous harvest.</p>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+            <tr style="color:#888;border-bottom:1px solid #333">
+                <th style="padding:4px 8px;text-align:left">Narrative</th>
+                <th style="padding:4px 8px">Tier</th>
+                <th style="padding:4px 8px;text-align:right">Threads</th>
+                <th style="padding:4px 8px;text-align:right">Adoption</th>
+                <th style="padding:4px 8px;text-align:right">Velocity</th>
+            </tr>
+            ${contagionRows || '<tr><td colspan="5" class="muted">No data yet.</td></tr>'}
+        </table>
+    </div>`;
+        }
+
+        // ── Public Figures ────────────────────────────────────────────────────
+        function renderFigures() {
+            const el = document.getElementById('figures');
+            const data = PUBLIC_FIGURES;
+            const figures = data.figures || [];
+            if (!figures.length) {
+                el.innerHTML = '<div class="muted">No data yet — run a harvest first.</div>';
+                return;
+            }
+
+            const totalPosts = data.total_posts || 1;
+            const maxCount = figures[0]?.post_count || 1;
+
+            // Group by category
+            const cats = {};
+            figures.forEach(f => {
+                if (!cats[f.category]) cats[f.category] = [];
+                cats[f.category].push(f);
+            });
+
+            const catOrder = ['US Politics','International','Tech/Billionaires','Media','Other'];
+
+            const catHtml = catOrder.filter(c => cats[c]).map(cat => {
+                const rows = cats[cat].map(f => {
+                    const barPct = Math.round(f.post_count / maxCount * 100);
+                    const density = (f.post_count / totalPosts * 100).toFixed(2);
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #1f1f1f">
+                        <div style="width:160px;color:#000;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(f.name)}">${esc(f.name)}</div>
+                        <div style="flex:1;background:#111;border-radius:2px;height:14px;position:relative">
+                            <div style="width:${barPct}%;background:#c8a96e;height:100%;border-radius:2px;min-width:2px"></div>
+                        </div>
+                        <div style="width:50px;text-align:right;color:#c8a96e;font-size:12px;font-weight:bold">${f.post_count.toLocaleString()}</div>
+                        <div style="width:60px;text-align:right;color:#aaa;font-size:11px">${f.thread_count} threads</div>
+                        <div style="width:52px;text-align:right;color:#888;font-size:11px">${density}%</div>
+                    </div>`;
+                }).join('');
+                return `<div class="card" style="margin-bottom:12px">
+                    <h3 style="margin:0 0 10px;font-size:13px;color:#c8a96e">${esc(cat)}</h3>
+                    ${rows}
+                </div>`;
+            }).join('');
+
+            // Top 10 overall bar list
+            const top10 = figures.slice(0, 10);
+            const top10Html = top10.map((f, i) => {
+                const barPct = Math.round(f.post_count / maxCount * 100);
+                return `<div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+                    <div style="width:20px;color:#555;font-size:11px;text-align:right">${i+1}</div>
+                    <div style="width:150px;color:#fff;font-size:13px;font-weight:bold">${esc(f.name)}</div>
+                    <div style="flex:1;background:#111;border-radius:2px;height:16px">
+                        <div style="width:${barPct}%;background:#e05;height:100%;border-radius:2px;min-width:2px"></div>
+                    </div>
+                    <div style="width:60px;text-align:right;color:#e05;font-size:13px;font-weight:bold">${f.post_count.toLocaleString()}</div>
+                    <div style="width:44px;text-align:right;color:#666;font-size:11px">${esc(f.category.split('/')[0])}</div>
+                </div>`;
+            }).join('');
+
+            el.innerHTML = `
+            <div class="card" style="margin-bottom:12px">
+                <h2 style="margin:0 0 4px;font-size:15px;color:#c8a96e">Public Figure Mentions</h2>
+                <div style="color:#888;font-size:12px;margin-bottom:14px">${figures.length} figures tracked across ${totalPosts.toLocaleString()} posts</div>
+                <h3 style="margin:0 0 8px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px">Most mentioned</h3>
+                ${top10Html}
+            </div>
+            ${catHtml}`;
+        }
+
         // ── Export ────────────────────────────────────────────────────────────
         function renderExport() {
             document.getElementById('export').innerHTML = `
@@ -1527,10 +1749,9 @@
                     if(progressInterval){clearInterval(progressInterval);progressInterval=null; }
                     if(checkInterval){   clearInterval(checkInterval);   checkInterval=null; }
 
-                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};LONGITUDINAL={};ARCS={};NARRATIVES={};
+                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};LONGITUDINAL={};ARCS={};NARRATIVES={};PIPELINE={};POSTER_ARCS={};CONTAGION={};PUBLIC_FIGURES={};
                     _lastUpdated=null; _dataLoadedAt=0;
-                    document.getElementById('newDataBanner').style.display='none';
-                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary','longitudinal','narratives','arcs','export','method'].forEach(id=>{
+                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary','longitudinal','narratives','arcs','radicalization','figures','export','method'].forEach(id=>{
                         document.getElementById(id).innerHTML='';
                     });
                     document.getElementById('trends').innerHTML='';

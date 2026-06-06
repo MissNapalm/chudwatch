@@ -85,6 +85,9 @@ STOP_TOPICS = {
     'Round', 'East', 'West', 'North', 'South', 'State', 'States', 'Oman',
     'Cause', 'Causes', 'Caused', 'Effect', 'Result', 'Results', 'Reason', 'Reasons',
     'chang', 'thou',
+    # Short/ambiguous NLP fragments that slip through
+    'Cont', 'Meth', 'Rest', 'Mans', 'Oman', 'German', 'Christ', 'State',
+    'Europe', 'Brown', 'Euro', 'Euros', 'Blacks', 'Whites',
 }
 
 # Collapsed topic groups: variant terms → single canonical label.
@@ -316,13 +319,16 @@ _RAW_PATTERNS = [
                                                                                             "veiled threat",                2),
     (r"\bshame if (something|an accident|something bad) (happened?|were to happen|occurs?)\b",
                                                                                             "veiled threat",                2),
-    (r"\baccidents? (can |do )?happen\b",                                                   "veiled threat",                2),
+    # "accident" requires target reference so "accidents happen" alone doesn't fire
+    (r"\baccident.{0,25}(happen|occur).{0,20}(to|for) (him|her|them|you|those|these)\b",  "veiled threat",                2),
     (r"\bwon'?t be around (long|much longer|forever)\b",                                    "veiled threat",                2),
-    (r"\bwouldn'?t (be|last) (long|much longer|much)\b",                                    "veiled threat",                2),
+    # "wouldn't last long" only fires when preceded by a target reference within 30 chars
+    (r"\b(he|she|they|this|that).{0,30}won'?t last (long|much longer|much)\b",             "veiled threat",                2),
+    (r"\b(he|she|they|this|that).{0,30}wouldn'?t (be|last) (long|much longer|much)\b",    "veiled threat",                2),
     (r"\b(watch (your|their|his|her) back|eyes? in the back of (your|their|his|her) head)\b",
                                                                                             "veiled threat",                2),
-    (r"\b(something|things|it) (will|might|could) happen (to|for) (you|them|him|her|those|these)\b",
-                                                                                            "veiled threat",                2),
+    # "something might happen" only fires with a human target pronoun
+    (r"\b(something|it) (will|might|could) happen to (them|him|her|those people|you)\b",   "veiled threat",                2),
 
     # ── Tier 2: Coded / meme violence references ───────────────────────────────
     # Pinochet helicopter-ride meme (political murder reference)
@@ -365,7 +371,7 @@ _RAW_PATTERNS = [
     (r"\b(do|did) (the world|everyone|society|us all) a (favor|favour) and (kill|shoot|remove|eliminate|get rid of|take out|murder|execute|hang)\b",
                                                                                             "direct incitement",            3),
     (r"\bsomeone (deal|deals|dealt|dealing) with (him|her|them|this|that)\b",              "direct incitement",            3),
-    (r"\bhas (this |it )?coming( to (him|her|them))?\b",                                   "direct incitement",            3),
+    (r"\bhas (this|it) coming( to (him|her|them))?\b",                                     "direct incitement",            3),
     (r"\bnot going to end well for (him|her|them|these people)\b",                         "direct incitement",            3),
     # Explicit hanging/stringing up
     (r"\b(string|hang|lynch|strung|hanged?|lynched?).{0,20}(them|him|her|these|those|all (of )?(them|you))\b",
@@ -2030,10 +2036,10 @@ def update_trends(raw_comments):
                 if ent.label_ not in target_labels:
                     continue
                 topic = re.sub(r'\s+', ' ', ent.text).strip()
-                if len(topic) < 4:
+                if len(topic) < 5:
                     continue
                 normalized = topic.title()
-                if normalized not in STOP_TOPICS:
+                if normalized.lower() not in {s.lower() for s in STOP_TOPICS}:
                     candidates.add(normalized)
 
             for chunk in doc.noun_chunks:
@@ -2079,15 +2085,18 @@ def _count_topics(candidates, texts):
         if count > 0:
             topic_counts[canonical] = count
 
-    # Ungrouped candidates — skip anything that's already a group variant
+    # Ungrouped candidates — skip group variants, stop words, or very short words
+    _stop_lower = {s.lower() for s in STOP_TOPICS}
     ungrouped = {c for c in candidates
-                 if c.lower() not in _ALL_GROUP_VARIANTS
-                 and c not in TOPIC_GROUPS
-                 and c not in STOP_TOPICS}
-    lower_map = {c: c.lower() for c in ungrouped}
+                 if len(c) >= 5
+                 and c.lower() not in _ALL_GROUP_VARIANTS
+                 and c.lower() not in _stop_lower
+                 and c not in TOPIC_GROUPS}
+    # Use word-boundary regex so "Meth" doesn't match "method", "Oman" doesn't match "woman"
+    pat_map = {c: re.compile(r'(?<!\w)' + re.escape(c.lower()) + r'(?!\w)') for c in ungrouped}
     for tl in texts_lower:
-        for topic, topic_lower in lower_map.items():
-            if topic_lower in tl:
+        for topic, pat in pat_map.items():
+            if pat.search(tl):
                 topic_counts[topic] += 1
 
     return [(w, c) for w, c in topic_counts.most_common(100) if len(w) > 2][:25]

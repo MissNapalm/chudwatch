@@ -447,8 +447,9 @@
         function renderMemes() {
             const el = document.getElementById('memes');
             if (!MEMES.length) { el.innerHTML='<div class="muted">No images found yet.</div>'; return; }
-            el.innerHTML = `<div class="count-bar"><b>${MEMES.length}</b> images — most reposted first</div>
-                <div class="memes-grid">${MEMES.map(m=>`
+            const repeats = MEMES.filter(m => m.count >= 2);
+            const singles = MEMES.filter(m => m.count < 2);
+            const renderCard = m => `
                 <div class="meme-card">
                     <a href="${esc(m.url)}" target="_blank" rel="noopener">
                         <img src="${esc(m.thumb)}" alt="${esc(m.filename)}" loading="lazy" onerror="this.style.display='none'">
@@ -458,7 +459,13 @@
                         <div class="meme-threads">${m.thread_count} thread${m.thread_count!==1?'s':''}</div>
                         <div style="font-size:10px;color:#aaa;word-break:break-all">${esc(m.filename||'')}</div>
                     </div>
-                </div>`).join('')}</div>`;
+                </div>`;
+            el.innerHTML = `
+                <div class="count-bar"><b>${repeats.length}</b> repeat memes (×2+) · ${singles.length} single-appearance images</div>
+                ${repeats.length ? `<h3 style="margin:12px 0 6px;font-size:13px;color:#8b0000">Recurring memes</h3>
+                <div class="memes-grid">${repeats.map(renderCard).join('')}</div>` : '<div class="muted">No repeat memes yet.</div>'}
+                ${singles.length ? `<details style="margin-top:16px"><summary style="cursor:pointer;font-size:12px;color:#888">Show ${singles.length} single-appearance images</summary>
+                <div class="memes-grid" style="margin-top:8px">${singles.map(renderCard).join('')}</div></details>` : ''}`;
         }
 
         // ── Signals ───────────────────────────────────────────────────────────

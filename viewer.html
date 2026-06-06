@@ -81,10 +81,11 @@
 
         async function load() {
             try {
+                const t = Date.now();
                 const [pRes, tRes, mRes] = await Promise.all([
-                    fetch('posts.json?t=' + Date.now()),
-                    fetch('trends.json?t=' + Date.now()),
-                    fetch('metrics.json?t=' + Date.now())
+                    fetch(`posts.json?t=${t}`),
+                    fetch(`trends.json?t=${t}`),
+                    fetch(`metrics.json?t=${t}`)
                 ]);
                 
                 if (!pRes.ok || !tRes.ok || !mRes.ok) {

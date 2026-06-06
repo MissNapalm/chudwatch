@@ -15,8 +15,9 @@
         .search-area { display: flex; gap: 10px; margin-bottom: 16px; }
         input { flex: 1; padding: 10px; border: 1px solid #d3b49f; border-radius: 4px; font-size: 15px; }
         button { background: #0f0c5d; color: #fff; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .tabs { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 20px; border-bottom: 3px solid #d3b49f; }
-        .tab-btn { background: #f7f3e9; border: none; border-bottom: 3px solid transparent; margin-bottom: -3px; padding: 10px 18px; cursor: pointer; font-weight: bold; font-size: 13px; color: #555; transition: all 0.2s; }
+        .tabs { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 0; margin-bottom: 20px; border-bottom: 3px solid #d3b49f; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { background: #f7f3e9; border: none; border-bottom: 3px solid transparent; margin-bottom: -3px; padding: 8px 12px; cursor: pointer; font-weight: bold; font-size: 12px; color: #555; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
         .tab-btn:hover { background: #ede8dc; color: #333; }
         .tab-btn.active { background: #fff; color: #0f0c5d; border-bottom-color: #0f0c5d; }
         .tab-btn.danger { color: #800000; }
@@ -101,6 +102,88 @@
         #bubbles svg { display:block; margin:0 auto; }
         #bubbles .bubble-label { pointer-events:none; fill:#fff; font-family:Arial,sans-serif; font-weight:bold; text-anchor:middle; }
         #bubbles .bubble-count { pointer-events:none; fill:rgba(255,255,255,0.82); font-family:Arial,sans-serif; text-anchor:middle; }
+
+        /* Pulse card */
+        .pulse-card { background:linear-gradient(135deg,#0f0c5d08,#8b000008); border:1px solid #c8b8a2; border-radius:6px; padding:12px 16px; margin-bottom:14px; font-size:13px; line-height:1.6; color:#333; }
+        .pulse-card .pulse-label { font-size:10px; font-weight:bold; letter-spacing:1px; color:#888; text-transform:uppercase; margin-bottom:4px; }
+
+        /* AI verdict badges */
+        .ai-confirmed  { background:#1a6b1a; color:#fff; font-size:10px; font-weight:bold; padding:2px 7px; border-radius:3px; margin-right:5px; }
+        .ai-ambiguous  { background:#856400; color:#fff; font-size:10px; font-weight:bold; padding:2px 7px; border-radius:3px; margin-right:5px; }
+        .ai-fp         { background:#999;    color:#fff; font-size:10px; font-weight:bold; padding:2px 7px; border-radius:3px; margin-right:5px; }
+        .ai-reason     { font-size:11px; color:#555; font-style:italic; margin-top:4px; }
+
+        /* Astroturf tab */
+        .astro-section { margin-bottom:24px; }
+        .astro-section h3 { color:#0f0c5d; margin-bottom:8px; }
+        .astro-ai-box { background:#f0f0ff; border:1px solid #9090dd; border-radius:5px; padding:12px 16px; font-size:13px; line-height:1.6; margin-bottom:16px; }
+        .astro-card { background:#f7f3e9; border:1px solid #d3b49f; border-radius:4px; padding:10px 14px; margin-bottom:8px; font-size:13px; }
+        .astro-url { font-family:monospace; font-size:12px; word-break:break-all; color:#0f0c5d; }
+        .astro-count { font-weight:bold; color:#8b0000; }
+        .astro-sample { color:#555; font-size:11px; margin-top:4px; white-space:pre-wrap; }
+        .signal-card.fp-card { opacity:0.45; }
+
+        /* Trans sentiment tab */
+        .trans-stats { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+        .trans-stat { background:#f7f3e9; border:1px solid #d3b49f; border-radius:5px; padding:10px 16px; text-align:center; min-width:100px; flex:1; }
+        .trans-stat .ts-num { font-size:26px; font-weight:bold; }
+        .trans-stat .ts-label { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.5px; margin-top:2px; }
+        .trans-stat.ts-threat .ts-num { color:#8b0000; }
+        .trans-stat.ts-dehuman .ts-num { color:#5c0000; }
+        .trans-stat.ts-political .ts-num { color:#884400; }
+        .trans-stat.ts-mockery .ts-num { color:#aa6600; }
+        .trans-stat.ts-neutral .ts-num { color:#447744; }
+        .trans-ai-box { background:#fff5f5; border:1px solid #d3b0b0; border-radius:5px; padding:12px 16px; font-size:13px; line-height:1.6; margin-bottom:16px; color:#333; }
+        .trans-ai-label { font-size:10px; font-weight:bold; letter-spacing:1px; color:#888; text-transform:uppercase; margin-bottom:5px; }
+        .trans-card { background:#fff9f9; border-left:4px solid #d3b49f; padding:10px 14px; margin-bottom:6px; font-size:13px; color:#111; line-height:1.45; }
+        .trans-card.tc-threat    { border-left-color:#8b0000; }
+        .trans-card.tc-dehumanization { border-left-color:#5c0000; background:#fff2f2; }
+        .trans-card.tc-political { border-left-color:#cc7700; }
+        .trans-card.tc-mockery   { border-left-color:#aa8800; }
+        .trans-card.tc-neutral   { border-left-color:#aaa; opacity:0.7; }
+        .tc-badge { display:inline-block; font-size:10px; font-weight:bold; padding:2px 7px; border-radius:3px; margin-right:6px; text-transform:uppercase; letter-spacing:.5px; }
+        .tc-badge.threat       { background:#8b0000; color:#fff; }
+        .tc-badge.dehumanization { background:#5c0000; color:#fff; }
+        .tc-badge.political    { background:#cc7700; color:#fff; }
+        .tc-badge.mockery      { background:#aa8800; color:#fff; }
+        .tc-badge.neutral      { background:#aaa;    color:#fff; }
+        .tc-badge.unclassified { background:#ccc;    color:#555; }
+        .tc-reason { font-size:11px; color:#777; font-style:italic; }
+
+        /* Patterns tab */
+        .pat-section { margin-bottom:28px; }
+        .pat-section h3 { color:#0f0c5d; margin:0 0 6px; font-size:15px; }
+        .pat-section .pat-desc { font-size:12px;color:#777;margin-bottom:12px; }
+        .heat-grid { display:grid; grid-template-columns:repeat(24,1fr); gap:2px; margin-bottom:4px; }
+        .heat-cell { height:32px; border-radius:2px; position:relative; }
+        .heat-label { display:grid; grid-template-columns:repeat(24,1fr); gap:2px; }
+        .heat-label span { font-size:9px; color:#999; text-align:center; }
+        .heat-legend { display:flex; gap:16px; font-size:11px; color:#777; margin-top:6px; }
+        .heat-legend span { display:flex; align-items:center; gap:5px; }
+        .heat-dot { width:10px; height:10px; border-radius:2px; display:inline-block; }
+        .cooccur-table { border-collapse:collapse; font-size:12px; width:100%; }
+        .cooccur-table th { background:#f7f3e9; padding:6px 10px; text-align:left; border:1px solid #d3b49f; color:#555; font-weight:bold; }
+        .cooccur-table td { padding:5px 10px; border:1px solid #e8e0d4; }
+        .cooccur-table tr:hover td { background:#fdf9f4; }
+        .lift-high { color:#8b0000; font-weight:bold; }
+        .lift-med  { color:#cc5500; }
+        .trip-card { background:#f7f3e9; border:1px solid #d3b49f; border-radius:4px; padding:10px 14px; margin-bottom:8px; font-size:13px; }
+        .trip-identity { font-family:monospace; font-weight:bold; color:#0f0c5d; font-size:13px; }
+        .trip-topic-tag { display:inline-block; background:#e8e0d4; color:#333; font-size:11px; padding:2px 6px; border-radius:3px; margin:2px; }
+        .corr-high { background:#8b000022; }
+        .corr-med  { background:#cc550018; }
+
+        /* Flags tab */
+        .flags-section { margin-bottom:28px; }
+        .flags-section h3 { color:#0f0c5d; margin:0 0 12px; font-size:15px; }
+        .flag-row { display:flex; align-items:center; gap:9px; margin-bottom:5px; font-size:13px; }
+        .flag-row img { width:20px; height:14px; object-fit:cover; border:1px solid #ccc; flex-shrink:0; image-rendering:crisp-edges; }
+        .flag-name { width:180px; color:#333; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+        .flag-bar-wrap { flex:1; background:#f0eade; border-radius:3px; height:12px; overflow:hidden; }
+        .flag-bar-fill { height:100%; border-radius:3px; background:#0f0c5d; }
+        .flag-bar-fill.troll { background:#8b0000; }
+        .flag-count { width:44px; text-align:right; color:#555; font-size:12px; }
+        .flag-pct { width:36px; color:#aaa; font-size:12px; }
     </style>
 </head>
 <body>
@@ -124,6 +207,13 @@
         <div class="card">
             <strong>Trending:</strong> <span id="trends"></span>
         </div>
+        <div id="newDataBanner" style="display:none;background:#1a3a1a;color:#5cb85c;padding:8px 16px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
+            <span>New harvest data available</span>
+            <div style="display:flex;gap:8px">
+                <button onclick="loadNewData()" style="background:#5cb85c;color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold">Load new data</button>
+                <button onclick="this.closest('#newDataBanner').style.display='none'" style="background:transparent;color:#5cb85c;border:1px solid #5cb85c;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px">Dismiss</button>
+            </div>
+        </div>
         <div class="search-area">
             <input type="text" id="search" placeholder="Search posts..." onkeydown="if(event.key==='Enter') render()">
             <button onclick="render()">Search</button>
@@ -133,10 +223,16 @@
             <button class="tab-btn active"  data-tab="posts"       onclick="switchTab('posts')">Posts</button>
             <button class="tab-btn"         data-tab="threads"     onclick="switchTab('threads')">Threads</button>
             <button class="tab-btn"         data-tab="bubbles"     onclick="switchTab('bubbles')">Bubbles</button>
-            <button class="tab-btn"         data-tab="memes"       onclick="switchTab('memes')">Top Memes</button>
+            <button class="tab-btn"         data-tab="memes"       onclick="switchTab('memes')">Memes</button>
             <button class="tab-btn danger"  data-tab="signals"     onclick="switchTab('signals')">⚠ Signals</button>
             <button class="tab-btn danger"  data-tab="jargon"      onclick="switchTab('jargon')">Jargon Pipeline</button>
             <button class="tab-btn danger"  data-tab="conspiracy"  onclick="switchTab('conspiracy')">Conspiracy Map</button>
+            <button class="tab-btn danger"  data-tab="astroturf"   onclick="switchTab('astroturf')">🤖 Astroturf</button>
+            <button class="tab-btn danger"  data-tab="trans"       onclick="switchTab('trans')">🏳️‍⚧️ Anti-Trans</button>
+            <button class="tab-btn"         data-tab="countries"   onclick="switchTab('countries')">🌍 Countries</button>
+            <button class="tab-btn"         data-tab="boardflags"  onclick="switchTab('boardflags')">🏴 Board Flags</button>
+            <button class="tab-btn"         data-tab="patterns"    onclick="switchTab('patterns')">📊 Patterns</button>
+            <button class="tab-btn"         data-tab="aisummary"   onclick="switchTab('aisummary')">✨ AI Summary</button>
         </div>
 
         <div id="posts"      class="tab-content active"></div>
@@ -146,10 +242,19 @@
         <div id="signals"    class="tab-content"></div>
         <div id="jargon"     class="tab-content"></div>
         <div id="conspiracy" class="tab-content"></div>
+        <div id="astroturf"  class="tab-content"></div>
+        <div id="trans"      class="tab-content"></div>
+        <div id="countries"  class="tab-content"></div>
+        <div id="boardflags" class="tab-content"></div>
+        <div id="patterns"   class="tab-content"></div>
+        <div id="aisummary"  class="tab-content"></div>
     </div>
 
     <script>
-        let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [];
+        let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [], ASTROTURF = {}, PULSE = {}, TRANS = {}, FLAGS = {}, TIMEHEAT = {}, TRIPCODES = {}, COOCCUR = {};
+        let _lastUpdated = null;   // null = never rendered; set after first render; frozen until user loads new data
+        let _dataLoadedAt = 0;     // epoch-seconds when we last rendered; used to detect newer harvests
+        let _loadLock = false;     // prevent concurrent load() calls
 
         const stripHTML = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent || ''; };
         const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -161,53 +266,123 @@
             document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
             const renderers = { posts: render, threads: renderThreads, bubbles: renderBubbles,
                                 memes: renderMemes, signals: renderSignals,
-                                jargon: renderJargon, conspiracy: renderConspiracy };
+                                jargon: renderJargon, conspiracy: renderConspiracy,
+                                astroturf: renderAstroturf, trans: renderTrans,
+                                countries: renderCountries, boardflags: renderBoardFlags,
+                                patterns: renderPatterns, aisummary: renderAiSummary };
             (renderers[tab] || render)();
         }
 
         // ── Load ─────────────────────────────────────────────────────────────
         async function load() {
+            if (_loadLock) return;
+            _loadLock = true;
             try {
                 const t = Date.now();
-                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes'];
+                const files = ['posts','trends','metrics','signals','jargon','conspiracies','threads','memes','astroturf','pulse','trans','flags','timeheat','tripcodes','cooccur'];
                 const responses = await Promise.all(files.map(f => fetch(`${f}.json?t=${t}`)));
                 if (!responses[0].ok || !responses[1].ok) throw new Error('Core data missing');
 
-                POSTS       = await responses[0].json();
-                TRENDS      = await responses[1].json();
-                const met   = await responses[2].json().catch(()=>({}));
-                SIGNALS     = responses[3].ok ? await responses[3].json().catch(()=>({})) : {};
-                JARGON      = responses[4].ok ? await responses[4].json().catch(()=>({})) : {};
-                CONSPIRACIES= responses[5].ok ? await responses[5].json().catch(()=>({})) : {};
-                const thraw = responses[6].ok ? await responses[6].json().catch(()=>({})) : {};
-                THREADS     = thraw.threads || [];
-                const mraw  = responses[7].ok ? await responses[7].json().catch(()=>({})) : {};
-                MEMES       = mraw.memes || [];
+                POSTS        = await responses[0].json();
+                TRENDS       = await responses[1].json();
+                const met    = await responses[2].json().catch(()=>({}));
+                SIGNALS      = responses[3].ok ? await responses[3].json().catch(()=>({})) : {};
+                JARGON       = responses[4].ok ? await responses[4].json().catch(()=>({})) : {};
+                CONSPIRACIES = responses[5].ok ? await responses[5].json().catch(()=>({})) : {};
+                const thraw  = responses[6].ok ? await responses[6].json().catch(()=>({})) : {};
+                THREADS      = thraw.threads || [];
+                const mraw   = responses[7].ok ? await responses[7].json().catch(()=>({})) : {};
+                MEMES        = mraw.memes || [];
+                ASTROTURF    = responses[8].ok ? await responses[8].json().catch(()=>({})) : {};
+                PULSE        = responses[9].ok ? await responses[9].json().catch(()=>({})) : {};
+                TRANS        = responses[10].ok ? await responses[10].json().catch(()=>({})) : {};
+                FLAGS        = responses[11].ok ? await responses[11].json().catch(()=>({})) : {};
+                TIMEHEAT     = responses[12].ok ? await responses[12].json().catch(()=>({})) : {};
+                TRIPCODES    = responses[13].ok ? await responses[13].json().catch(()=>({})) : {};
+                COOCCUR      = responses[14].ok ? await responses[14].json().catch(()=>({})) : {};
 
-                document.getElementById('statusBar').textContent =
-                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · updated ${JARGON.updated || met.updated || ''}`;
+                const newUpdated = JARGON.updated || met.updated || '';
+                const isFirstLoad = _lastUpdated === null;
+                // Use a stable non-empty key — fall back to fetch timestamp so it's always set
+                _lastUpdated = newUpdated || String(t);
+                _dataLoadedAt = t / 1000; // epoch seconds
+
                 document.getElementById('loading').style.display = 'none';
+                document.getElementById('newDataBanner').style.display = 'none';
+                document.getElementById('statusBar').textContent =
+                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · fetched ${newUpdated} · frozen`;
 
-                document.getElementById('trends').innerHTML = (Array.isArray(TRENDS)?TRENDS:[]).slice(0,20).map(t => {
-                    const name = Array.isArray(t)?t[0]:t.name, count = Array.isArray(t)?t[1]:t.count;
+                document.getElementById('trends').innerHTML = (Array.isArray(TRENDS)?TRENDS:[]).slice(0,20).map(tr => {
+                    const name = Array.isArray(tr)?tr[0]:tr.name, count = Array.isArray(tr)?tr[1]:tr.count;
                     return `<span class="trend-chip" onclick="setS('${esc(name)}')">${esc(name)} <b>(${count})</b></span>`;
                 }).join('');
 
-                const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
-                switchTab(activeTab);
+                if (isFirstLoad) {
+                    // Render the active tab exactly once. After this the display is frozen.
+                    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
+                    switchTab(activeTab);
+                    // Stop the boot retry interval and start quiet background-check only
+                    if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
+                    startBackgroundCheck();
+                }
+                // If not isFirstLoad (called from loadNewData) — tab was already rendered by
+                // the caller via switchTab after this resolves. No auto-render here.
             } catch(e) {
+                if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
                 document.getElementById('loading').style.display = 'block';
                 startProgressPolling();
+            } finally {
+                _loadLock = false;
             }
+        }
+
+        // Silently check whether a newer harvest has completed. Shows a banner but
+        // does NOT auto-update the display — user must click "Load new data".
+        function startBackgroundCheck() {
+            if (checkInterval) return;
+            checkInterval = setInterval(async () => {
+                try {
+                    const r = await fetch(`progress.json?t=${Date.now()}`);
+                    if (!r.ok) return;
+                    const p = await r.json();
+                    if ((p.status === 'sleeping' || p.status === 'done') && (p.ts || 0) > _dataLoadedAt) {
+                        document.getElementById('newDataBanner').style.display = 'flex';
+                    }
+                } catch(e) {}
+            }, 15000); // check every 15 s — low overhead, no rendering
+        }
+
+        async function loadNewData() {
+            document.getElementById('newDataBanner').style.display = 'none';
+            _lastUpdated = null; // force full re-render
+            await load();
+            // re-render the tab currently visible so the user sees the fresh data immediately
+            const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
+            switchTab(activeTab);
         }
 
         function setS(w) { document.getElementById('search').value = w; switchTab('posts'); }
 
+        // Build a text-matcher for the current search query.
+        // Single-word queries use \b word boundaries so "trans" doesn't hit "transactional".
+        // Queries with a trailing space (e.g. "trans ") use prefix matching so they catch
+        // "trans women", "trans people", etc.
+        function buildMatcher(q) {
+            if (!q) return null;
+            const isSingleWord = !/\s/.test(q);
+            if (isSingleWord) {
+                const re = new RegExp('\\b' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b');
+                return text => re.test(text);
+            }
+            return text => text.includes(q);
+        }
+
         // ── Posts ─────────────────────────────────────────────────────────────
         function render() {
-            const q = document.getElementById('search').value.trim().toLowerCase();
+            const q = document.getElementById('search').value.trimStart().toLowerCase();
             if (!POSTS.length) { document.getElementById('posts').innerHTML='<div class="muted">No posts yet.</div>'; return; }
-            const filtered = q ? POSTS.filter(p=>(p.comment||'').toLowerCase().includes(q)) : POSTS;
+            const match = buildMatcher(q);
+            const filtered = match ? POSTS.filter(p=>match((p.comment||'').toLowerCase())) : POSTS;
             const slice = filtered.slice(0,100);
             document.getElementById('posts').innerHTML =
                 `<div class="count-bar">Found <b>${filtered.length.toLocaleString()}</b> posts${q?' matching "'+esc(q)+'"':''}</div>` +
@@ -215,7 +390,17 @@
                     let c = stripHTML(p.comment||'');
                     c = esc(c.replace(/>>(\d+)([^\s])/g,'>>$1 $2'));
                     if (q) c = c.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'), m=>`<mark>${m}</mark>`);
-                    return `<div class="post-card"><b>Anonymous</b> No.${p.post_id}
+                    // Flag: board flag takes priority over country flag; placeholder keeps lines even
+                    const flagStyle = `height:12px;width:20px;margin:0 4px;vertical-align:middle;border:1px solid #ccc;display:inline-block`;
+                    let flagHtml = `<span style="${flagStyle};background:#e8e0d4;border-radius:1px" title="No flag"></span>`;
+                    if (p.board_flag) {
+                        const url = `https://s.4cdn.org/image/flags/pol/${p.board_flag.toLowerCase()}.gif`;
+                        flagHtml = `<img src="${url}" title="${esc(p.board_flag_name||p.board_flag)}" style="${flagStyle}" onerror="this.src='';this.style.background='#e8e0d4';this.removeAttribute('onerror')">`;
+                    } else if (p.country) {
+                        const url = `https://s.4cdn.org/image/country/${p.country.toLowerCase()}.gif`;
+                        flagHtml = `<img src="${url}" title="${esc(p.country_name||p.country)}" style="${flagStyle}" onerror="this.src='';this.style.background='#e8e0d4';this.removeAttribute('onerror')">`;
+                    }
+                    return `<div class="post-card"><b>Anonymous</b>${flagHtml}No.${p.post_id}
                         <a href="https://boards.4channel.org/pol/thread/${p.thread_id}#p${p.post_id}" target="_blank" rel="noopener">[View]</a>
                         <div style="margin-top:6px;white-space:pre-wrap">${c}</div></div>`;
                 }).join('');
@@ -223,10 +408,11 @@
 
         // ── Threads ───────────────────────────────────────────────────────────
         function renderThreads() {
-            const q = document.getElementById('search').value.trim().toLowerCase();
+            const q = document.getElementById('search').value.trimStart().toLowerCase();
             if (!THREADS.length) { document.getElementById('threads').innerHTML='<div class="muted">No thread data yet.</div>'; return; }
-            const filtered = q ? THREADS.filter(t=>
-                (t.subject||'').toLowerCase().includes(q)||(t.preview||'').toLowerCase().includes(q)) : THREADS;
+            const match = buildMatcher(q);
+            const filtered = match ? THREADS.filter(t=>
+                match((t.subject||'').toLowerCase())||match((t.preview||'').toLowerCase())) : THREADS;
             document.getElementById('threads').innerHTML =
                 `<div class="count-bar"><b>${filtered.length}</b> threads sorted by reply count</div>` +
                 filtered.slice(0,150).map(t => {
@@ -257,15 +443,21 @@
                 .style('cursor','pointer')
                 .on('click',(e,d)=>setS(d.name));
             node.append('circle').attr('r',d=>rScale(d.count)).attr('fill',d=>colorScale(d.count)).attr('stroke','rgba(255,255,255,0.3)').attr('stroke-width',1.5);
-            node.filter(d=>rScale(d.count)>=28).append('text').attr('class','bubble-label').attr('dy',d=>rScale(d.count)>=45?'-0.25em':'0.35em').style('font-size',d=>Math.min(rScale(d.count)/3.2,15)+'px').text(d=>d.name);
-            node.filter(d=>rScale(d.count)>=45).append('text').attr('class','bubble-count').attr('dy','1.1em').style('font-size',d=>Math.min(rScale(d.count)/4.5,12)+'px').text(d=>d.count);
+            // Label: show name on all bubbles big enough to read
+            node.filter(d=>rScale(d.count)>=28).append('text').attr('class','bubble-label')
+                .attr('dy',d=>rScale(d.count)>=36?'-0.25em':'0.35em')
+                .style('font-size',d=>Math.min(rScale(d.count)/3.2,15)+'px').text(d=>d.name);
+            // Count: show below name on any labelled bubble
+            node.filter(d=>rScale(d.count)>=28).append('text').attr('class','bubble-count')
+                .attr('dy',d=>rScale(d.count)>=36?'1.0em':'1.5em')
+                .style('font-size',d=>Math.min(rScale(d.count)/4.5,12)+'px').text(d=>d.count);
         }
 
         // ── Memes ─────────────────────────────────────────────────────────────
         function renderMemes() {
             const el = document.getElementById('memes');
-            if (!MEMES.length) { el.innerHTML='<div class="muted">No recurring images found yet (need 2+ posts with same image).</div>'; return; }
-            el.innerHTML = `<div class="count-bar"><b>${MEMES.length}</b> images posted more than once, sorted by frequency</div>
+            if (!MEMES.length) { el.innerHTML='<div class="muted">No images found yet.</div>'; return; }
+            el.innerHTML = `<div class="count-bar"><b>${MEMES.length}</b> images — most reposted first</div>
                 <div class="memes-grid">${MEMES.map(m=>`
                 <div class="meme-card">
                     <a href="${esc(m.url)}" target="_blank" rel="noopener">
@@ -299,20 +491,157 @@
                     const badgeClass = `t${s.max_tier}-badge`;
                     const cats = s.categories.map(c=>`<span class="cat-tag">${esc(c)}</span>`).join('');
                     const trigs = s.triggers.map(t=>`<span class="trigger-tag">${esc(t)}</span>`).join('');
-                    // Highlight triggers in snippet
                     let snip = esc(s.snippet||s.comment||'');
                     s.triggers.forEach(t => {
                         snip = snip.replace(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),
                             m=>`<span class="signal-highlight">${m}</span>`);
                     });
-                    return `<div class="signal-card ${tierClass}">
+                    const verd = s.ai_verdict;
+                    const verdBadge = verd === 'confirmed'     ? `<span class="ai-confirmed">✓ AI: CONFIRMED</span>` :
+                                      verd === 'ambiguous'     ? `<span class="ai-ambiguous">~ AI: AMBIGUOUS</span>` :
+                                      verd === 'false_positive'? `<span class="ai-fp">✗ AI: FALSE POSITIVE</span>` : '';
+                    const aiReason = s.ai_reason ? `<div class="ai-reason">${esc(s.ai_reason)}</div>` : '';
+                    return `<div class="signal-card ${tierClass}${verd==='false_positive'?' fp-card':''}">
                         <div style="margin-bottom:6px">
-                            <span class="signal-tier ${badgeClass}">TIER ${s.max_tier}</span>${cats}${trigs}
+                            <span class="signal-tier ${badgeClass}">TIER ${s.max_tier}</span>${verdBadge}${cats}${trigs}
                             <a href="https://boards.4channel.org/pol/thread/${s.thread_id}#p${s.post_id}" target="_blank" rel="noopener" style="float:right;font-size:11px">[View]</a>
                         </div>
-                        <div style="white-space:pre-wrap;line-height:1.5">${snip}</div>
+                        ${aiReason}
+                        <div style="white-space:pre-wrap;line-height:1.5;margin-top:4px">${snip}</div>
                     </div>`;
                 }).join('')}`;
+        }
+
+        // ── AI Summary ────────────────────────────────────────────────────────
+        function renderAiSummary() {
+            const el = document.getElementById('aisummary');
+            const pulse = PULSE.text || '';
+            const astroAi = ASTROTURF.ai_assessment || '';
+            if (!pulse && !astroAi) {
+                el.innerHTML = '<div class="muted">AI summary not available yet — set ANTHROPIC_API_KEY and wait for the next harvest.</div>';
+                return;
+            }
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:16px">Updated ${PULSE.updated||ASTROTURF.updated||''}</div>`;
+            if (pulse) {
+                html += `<div style="margin-bottom:20px">
+                    <div class="pulse-label" style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:8px">What /pol/ is worked up about right now</div>
+                    <div style="font-size:14px;line-height:1.7;color:#222;background:#fff;border:1px solid #d3b49f;border-radius:6px;padding:16px 20px">${esc(pulse)}</div>
+                </div>`;
+            }
+            if (astroAi) {
+                html += `<div>
+                    <div class="pulse-label" style="font-size:11px;font-weight:bold;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:8px">Coordination / Astroturf Assessment</div>
+                    <div class="astro-ai-box">${esc(astroAi)}</div>
+                </div>`;
+            }
+            el.innerHTML = html;
+        }
+
+        // ── Astroturf ─────────────────────────────────────────────────────────
+        function renderAstroturf() {
+            const el = document.getElementById('astroturf');
+            const bombs   = ASTROTURF.url_bombs          || [];
+            const dups    = ASTROTURF.duplicate_clusters  || [];
+            const phrases = ASTROTURF.injected_phrases    || [];
+            const ops     = ASTROTURF.op_templates        || [];
+            const spikes  = ASTROTURF.velocity_spikes     || [];
+            const ai      = ASTROTURF.ai_assessment       || '';
+            const liveN   = ASTROTURF.live_post_count     || 0;
+            const archN   = ASTROTURF.archive_post_count  || 0;
+
+            if (!bombs.length && !dups.length && !phrases.length && !ops.length && !spikes.length && !ai) {
+                el.innerHTML = '<div class="muted">No astroturfing signals detected yet.</div>'; return;
+            }
+
+            const badge = (label, color) =>
+                `<span style="display:inline-block;background:${color};color:#fff;font-size:10px;font-weight:bold;padding:2px 7px;border-radius:3px;margin-right:6px;text-transform:uppercase;letter-spacing:.5px">${label}</span>`;
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:8px">
+                Updated ${ASTROTURF.updated||''} ·
+                <strong>${liveN.toLocaleString()}</strong> live posts ·
+                <strong>${archN.toLocaleString()}</strong> archived posts analysed
+            </div>`;
+
+            if (ai) html += `<div class="astro-ai-box"><div style="font-size:10px;font-weight:bold;letter-spacing:1px;color:#888;text-transform:uppercase;margin-bottom:6px">🤖 AI Synthesis</div>${esc(ai)}</div>`;
+
+            // Velocity spikes
+            if (spikes.length) {
+                html += `<div class="astro-section"><h3>📈 Narrative Velocity Spikes</h3>
+                    <div style="font-size:12px;color:#777;margin-bottom:10px">Topics significantly more active in live threads than the archive baseline — potential active push.</div>`;
+                html += spikes.map(s => `<div class="astro-card">
+                    ${badge(s.multiplier + '×', '#8b0000')}
+                    <strong>${esc(s.topic)}</strong>
+                    <span style="color:#555;font-size:12px"> — ${s.live_posts} live posts · live rate ${s.live_rate}% vs archive ${s.arch_rate}%</span>
+                </div>`).join('');
+                html += `</div>`;
+            }
+
+            // OP templates
+            if (ops.length) {
+                html += `<div class="astro-section"><h3>🧵 Thread-Starter Templates</h3>
+                    <div style="font-size:12px;color:#777;margin-bottom:10px">Multiple thread OPs with near-identical text — threads being seeded from a template.</div>`;
+                html += ops.map(o => `<div class="astro-card">
+                    ${badge(o.size + ' OPs', '#5c0000')}
+                    <span style="color:#555;font-size:12px">${o.live_count} live / ${o.arch_count} archived</span>
+                    ${o.samples.slice(0,2).map(s=>`<div class="astro-sample">${esc(s)}</div>`).join('')}
+                </div>`).join('');
+                html += `</div>`;
+            }
+
+            // Injected phrases
+            if (phrases.length) {
+                html += `<div class="astro-section"><h3>💬 Injected Talking Points</h3>
+                    <div style="font-size:12px;color:#777;margin-bottom:10px">Verbatim phrases appearing across many unrelated threads — coordinated narrative injection.</div>`;
+                html += phrases.map(p => `<div class="astro-card">
+                    ${badge(p.thread_count + ' threads', '#cc5500')}
+                    <span style="font-family:monospace;font-size:12px;color:#0f0c5d">"${esc(p.phrase)}"</span>
+                    <span style="font-size:11px;color:#888"> · ${p.live_count} live mentions</span>
+                    ${p.samples.length ? `<div class="astro-sample">${esc(p.samples[0].slice(0,160))}</div>` : ''}
+                </div>`).join('');
+                html += `</div>`;
+            }
+
+            // URL bombs
+            if (bombs.length) {
+                html += `<div class="astro-section"><h3>🔗 URL Bombing</h3>`;
+                html += bombs.map(b=>`<div class="astro-card">
+                    ${badge(b.thread_count + ' threads', '#444')}
+                    <span style="font-size:11px;color:#555">${b.live_mentions} live mentions</span>
+                    <div class="astro-url">${esc(b.url)}</div>
+                    ${b.samples.length ? `<div class="astro-sample">${esc(b.samples[0].slice(0,160))}</div>` : ''}
+                </div>`).join('');
+                html += `</div>`;
+            }
+
+            // OP image recycling
+            const opImgs = ASTROTURF.op_image_recycling || [];
+            if (opImgs.length) {
+                html += `<div class="astro-section"><h3>🖼️ Recycled Thread-Starter Images</h3>
+                    <div style="font-size:12px;color:#777;margin-bottom:10px">Same image MD5 used to open multiple threads — a classic thread-seeding tactic.</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px">`;
+                opImgs.forEach(img => {
+                    html += `<div class="astro-card" style="flex:0 0 auto;width:160px;text-align:center;padding:8px">
+                        ${img.thumb_url ? `<img src="${esc(img.thumb_url)}" style="max-width:140px;max-height:100px;object-fit:contain;display:block;margin:0 auto 6px" onerror="this.style.display='none'">` : ''}
+                        <div style="font-size:11px;color:#555">${esc(img.filename||'')}</div>
+                        <div style="margin-top:4px">${badge(img.thread_count+' threads','#444')}
+                        <span style="font-size:11px;color:#888">${img.live_count}L/${img.arch_count}A</span></div>
+                    </div>`;
+                });
+                html += `</div></div>`;
+            }
+
+            // Near-dup clusters
+            if (dups.length) {
+                html += `<div class="astro-section"><h3>📋 Copy-Paste Reply Clusters</h3>`;
+                html += dups.map(c=>`<div class="astro-card">
+                    ${badge(c.size + ' posts', '#666')}
+                    <span style="font-size:12px;color:#555">${c.live_count} live / ${c.arch_count} archived · ${c.thread_ids.length} threads</span>
+                    ${c.samples.slice(0,2).map(s=>`<div class="astro-sample">${esc(s)}</div>`).join('')}
+                </div>`).join('');
+                html += `</div>`;
+            }
+
+            el.innerHTML = html;
         }
 
         // ── Jargon Pipeline ───────────────────────────────────────────────────
@@ -400,8 +729,9 @@
 
             node.append('text')
                 .attr('text-anchor','middle').attr('dy','0.35em')
-                .style('fill','#fff').style('font-size',d=>Math.min(rScale(d.count)/3,12)+'px')
+                .style('fill','#111').style('font-size',d=>Math.min(rScale(d.count)/3,12)+'px')
                 .style('pointer-events','none').style('font-weight','bold')
+                .style('paint-order','stroke').style('stroke','rgba(255,255,255,0.85)').style('stroke-width','3px')
                 .text(d=>d.label.length>14?d.label.substring(0,12)+'…':d.label);
 
             node.append('title').text(d=>`${d.label}\n${d.count} posts\nTier ${d.tier}`);
@@ -414,8 +744,12 @@
 
         // ── Progress polling ──────────────────────────────────────────────────
         let progressInterval = null;
+        let checkInterval = null;
         function startProgressPolling() {
             if (progressInterval) return;
+            // Record when we started polling so we don't trigger on a stale
+            // "sleeping" status left over from a previous harvest cycle.
+            const pollStartedAt = Date.now() / 1000; // epoch seconds
             progressInterval = setInterval(async()=>{
                 try {
                     const res = await fetch(`progress.json?t=${Date.now()}`);
@@ -424,11 +758,322 @@
                     document.getElementById('progressText').textContent = p.message||'...';
                     document.getElementById('progressBar').style.width = (p.pct||0)+'%';
                     document.getElementById('progressPct').textContent = (p.pct||0)+'%';
-                    if(p.status==='sleeping'||p.status==='done') {
-                        clearInterval(progressInterval); progressInterval=null; load();
+                    // Only trigger completion on a harvest that started AFTER we began polling.
+                    // p.ts is the epoch-seconds timestamp written by the harvester.
+                    if((p.status==='sleeping'||p.status==='done') && (p.ts||0) > pollStartedAt) {
+                        clearInterval(progressInterval); progressInterval=null;
+                        _lastUpdated = null; // force full re-render
+                        await load();
+                        // load() calls startBackgroundCheck() internally after first render
                     }
                 } catch(e){}
             },800);
+        }
+
+        // ── Anti-Trans Sentiment ──────────────────────────────────────────────
+        function renderTrans() {
+            const el = document.getElementById('trans');
+            const posts = TRANS.posts || [];
+            const cats  = TRANS.categories || {};
+            const total = TRANS.count || 0;
+            const summary = TRANS.ai_summary || '';
+
+            if (!total && !summary) {
+                el.innerHTML = '<div class="muted">No anti-trans data yet — run the harvester first.</div>'; return;
+            }
+
+            const catDef = [
+                { key: 'threat',         label: 'Threat',         cls: 'ts-threat' },
+                { key: 'dehumanization', label: 'Dehumanization', cls: 'ts-dehuman' },
+                { key: 'political',      label: 'Political',      cls: 'ts-political' },
+                { key: 'mockery',        label: 'Mockery',        cls: 'ts-mockery' },
+                { key: 'neutral',        label: 'Neutral',        cls: 'ts-neutral' },
+            ];
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:16px">Updated ${TRANS.updated||''} · ${total.toLocaleString()} posts mentioning trans-related terms</div>`;
+
+            // Stat cards
+            html += `<div class="trans-stats">`;
+            html += `<div class="trans-stat"><div class="ts-num" style="color:#333">${total.toLocaleString()}</div><div class="ts-label">Total Posts</div></div>`;
+            catDef.forEach(d => {
+                const n = cats[d.key] || 0;
+                html += `<div class="trans-stat ${d.cls}"><div class="ts-num">${n}</div><div class="ts-label">${d.label}</div></div>`;
+            });
+            html += `</div>`;
+
+            // AI narrative
+            if (summary) {
+                html += `<div class="trans-ai-box"><div class="trans-ai-label">🤖 AI Rhetorical Analysis</div>${esc(summary)}</div>`;
+            }
+
+            // Category bar chart
+            if (total > 0) {
+                html += `<div style="margin-bottom:20px">`;
+                catDef.forEach(d => {
+                    const n = cats[d.key] || 0;
+                    if (!n) return;
+                    const pct = Math.round(n / total * 100);
+                    const colors = {threat:'#8b0000', dehumanization:'#5c0000', political:'#cc7700', mockery:'#aa8800', neutral:'#aaa'};
+                    const c = colors[d.key] || '#ccc';
+                    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px">
+                        <div style="width:110px;color:#555">${d.label}</div>
+                        <div style="flex:1;background:#f0eade;border-radius:3px;height:12px;overflow:hidden">
+                            <div style="width:${pct}%;height:100%;background:${c};border-radius:3px"></div>
+                        </div>
+                        <div style="width:36px;text-align:right;color:#555">${n}</div>
+                        <div style="width:30px;color:#aaa">${pct}%</div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            // Post list — threats and dehumanization first
+            const order = ['threat','dehumanization','political','mockery','neutral','unclassified'];
+            const sorted = [...posts].sort((a,b) => order.indexOf(a.category||'unclassified') - order.indexOf(b.category||'unclassified'));
+
+            html += `<h3 style="color:#800000;margin-bottom:10px;font-size:14px">Posts (${sorted.length.toLocaleString()} shown)</h3>`;
+            sorted.forEach(p => {
+                const cat = p.category || 'unclassified';
+                const reason = p.ai_reason ? `<span class="tc-reason"> — ${esc(p.ai_reason)}</span>` : '';
+                html += `<div class="trans-card tc-${cat}">
+                    <div style="margin-bottom:5px"><span class="tc-badge ${cat}">${cat}</span>${reason}</div>
+                    <div>${esc(p.snippet)}</div>
+                </div>`;
+            });
+
+            el.innerHTML = html;
+        }
+
+        // ── Countries ─────────────────────────────────────────────────────────
+        function renderCountries() {
+            const el = document.getElementById('countries');
+            const countries = FLAGS.countries || [];
+            const matrix    = FLAGS.country_topic_matrix || [];
+            const total = FLAGS.total_with_country || 0;
+            if (!total) { el.innerHTML = '<div class="muted">No country data yet.</div>'; return; }
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:16px">Updated ${FLAGS.updated||''} · ${total.toLocaleString()} posts with country flags</div>`;
+
+            // ── Volume bar chart ──
+            html += `<div class="flags-section"><h3>Posting Locations <span style="font-weight:normal;font-size:12px;color:#888">(IP-based)</span></h3>`;
+            const max = countries[0]?.count || 1;
+            countries.forEach(c => {
+                const pct = Math.round(c.count / total * 100);
+                const barPct = Math.round(c.count / max * 100);
+                const imgUrl = `https://s.4cdn.org/image/country/${c.code}.gif`;
+                html += `<div class="flag-row">
+                    <img src="${imgUrl}" alt="${esc(c.code.toUpperCase())}" title="${esc(c.name)}" onerror="this.src='';this.style.background='#e8e0d4';this.removeAttribute('onerror')">
+                    <div class="flag-name" title="${esc(c.name)}">${esc(c.name)}</div>
+                    <div class="flag-bar-wrap"><div class="flag-bar-fill" style="width:${barPct}%"></div></div>
+                    <div class="flag-count">${c.count.toLocaleString()}</div>
+                    <div class="flag-pct">${pct}%</div>
+                </div>`;
+            });
+            html += `</div>`;
+
+            // ── Country × Topic correlation ──
+            if (matrix.length) {
+                html += `<div class="flags-section" style="margin-top:24px">
+                    <h3>Country × Topic Disproportionality</h3>
+                    <div style="font-size:12px;color:#777;margin-bottom:10px">
+                        Ratio = country's topic rate ÷ global average. <span style="color:#8b0000;font-weight:bold">Red &gt;2×</span> = significantly overrepresented. Potential foreign influence signal.
+                    </div>`;
+                const topics = Object.keys(matrix[0]?.topics || {});
+                html += `<div style="overflow-x:auto"><table class="cooccur-table">
+                    <tr><th>Country</th>${topics.map(t=>`<th>${esc(t)}</th>`).join('')}</tr>`;
+                matrix.forEach(row => {
+                    const imgUrl = `https://s.4cdn.org/image/country/${row.code}.gif`;
+                    html += `<tr><td><img src="${imgUrl}" title="${esc(row.name)}" style="height:11px;margin-right:5px;vertical-align:middle" onerror="this.src='';this.style.background='#e8e0d4';this.removeAttribute('onerror')">${esc(row.name)} <span style="color:#aaa;font-size:11px">(${row.total_posts})</span></td>`;
+                    topics.forEach(t => {
+                        const td = row.topics[t];
+                        if (!td) { html += `<td style="color:#ddd">—</td>`; return; }
+                        const cls = td.ratio >= 2 ? 'corr-high lift-high' : td.ratio >= 1.4 ? 'corr-med lift-med' : '';
+                        html += `<td class="${cls}" title="${td.pct}% of posts (${td.ratio}×)">${td.ratio}×</td>`;
+                    });
+                    html += `</tr>`;
+                });
+                html += `</table></div></div>`;
+            }
+
+            el.innerHTML = html;
+        }
+
+        // ── Board Flags ───────────────────────────────────────────────────────
+        function renderBoardFlags() {
+            const el = document.getElementById('boardflags');
+            const trollFlags = FLAGS.troll_flags || [];
+            const total = FLAGS.total_with_troll_flag || 0;
+            if (!total) { el.innerHTML = '<div class="muted">No board flag data yet. Board flags are optional — most /pol/ users post without one.</div>'; return; }
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:16px">Updated ${FLAGS.updated||''} · ${total.toLocaleString()} posts using board flags</div>`;
+            html += `<div style="background:#fff5e6;border:1px solid #d3b49f;border-radius:4px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#555;line-height:1.5">
+                <strong>Board flags</strong> are manually chosen by the poster — they override the country flag and signal ideological identity.
+                On /pol/ these include flags like "Nazi", "Anarcho-Capitalist", "Nationalist", "Communist", "Kekistan", etc.
+            </div>`;
+            html += `<div class="flags-section"><h3>Board / Troll Flags</h3>`;
+            const max = trollFlags[0]?.count || 1;
+            trollFlags.forEach(f => {
+                const pct = Math.round(f.count / total * 100);
+                const barPct = Math.round(f.count / max * 100);
+                const imgUrl = `https://s.4cdn.org/image/flags/pol/${f.code}.gif`;
+                html += `<div class="flag-row">
+                    <img src="${imgUrl}" alt="${esc(f.code.toUpperCase())}" onerror="this.src='';this.style.background='#e8e0d4';this.removeAttribute('onerror')">
+                    <div class="flag-name" title="${esc(f.name)}">${esc(f.name)}</div>
+                    <div class="flag-bar-wrap"><div class="flag-bar-fill troll" style="width:${barPct}%"></div></div>
+                    <div class="flag-count">${f.count.toLocaleString()}</div>
+                    <div class="flag-pct">${pct}%</div>
+                </div>`;
+            });
+            html += `</div>`;
+            el.innerHTML = html;
+        }
+
+        // ── Patterns ──────────────────────────────────────────────────────────
+        function renderPatterns() {
+            const el = document.getElementById('patterns');
+            const hasData = (TIMEHEAT.live_by_hour||TRIPCODES.posters||COOCCUR.pairs);
+            if (!hasData) { el.innerHTML = '<div class="muted">No pattern data yet.</div>'; return; }
+
+            let html = `<div style="font-size:12px;color:#888;margin-bottom:16px">Patterns extracted from live + archive post corpus</div>`;
+
+            // ── Hourly heatmap ──
+            if (TIMEHEAT.live_by_hour) {
+                const liveH = TIMEHEAT.live_by_hour;
+                const archH = TIMEHEAT.archive_by_hour || new Array(24).fill(0);
+                const liveMax  = Math.max(...liveH, 1);
+                const archMax  = Math.max(...archH, 1);
+                const liveSum  = liveH.reduce((a,b)=>a+b,0);
+                const archSum  = archH.reduce((a,b)=>a+b,0);
+
+                const dow = TIMEHEAT.live_by_dow || [];
+                const dowLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+                html += `<div class="pat-section">
+                    <h3>Posting Activity by Hour (UTC)</h3>
+                    <div class="pat-desc">Bots and coordinated campaigns show unnaturally flat distributions or off-hours spikes. Live = current harvest. Archive = historical baseline.</div>
+                    <div style="display:flex;gap:4px;margin-bottom:2px">`;
+                for (let h = 0; h < 24; h++) {
+                    const lPct = Math.round(liveH[h]/liveMax*100);
+                    const aPct = Math.round(archH[h]/archMax*100);
+                    const lRate = liveSum > 0 ? (liveH[h]/liveSum*100).toFixed(1) : 0;
+                    const aRate = archSum > 0 ? (archH[h]/archSum*100).toFixed(1) : 0;
+                    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px" title="Hour ${h}:00 UTC\nLive: ${liveH[h]} (${lRate}%)\nArchive: ${archH[h]} (${aRate}%)">
+                        <div style="width:100%;height:${Math.max(2,lPct*0.4)}px;background:#0f0c5d;border-radius:1px 1px 0 0"></div>
+                        <div style="width:100%;height:${Math.max(2,aPct*0.4)}px;background:#d3b49f;border-radius:0 0 1px 1px"></div>
+                    </div>`;
+                }
+                html += `</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#999;margin-bottom:4px">`;
+                for (let h = 0; h < 24; h += 3) html += `<span>${h}h</span>`;
+                html += `</div>
+                    <div class="heat-legend">
+                        <span><span class="heat-dot" style="background:#0f0c5d"></span>Live</span>
+                        <span><span class="heat-dot" style="background:#d3b49f"></span>Archive baseline</span>
+                    </div>`;
+
+                // Day-of-week
+                if (dow.length === 7) {
+                    const dowMax = Math.max(...dow, 1);
+                    html += `<div style="margin-top:16px"><strong style="font-size:13px">By Day of Week</strong>
+                        <div style="display:flex;gap:4px;margin-top:8px;align-items:flex-end;height:50px">`;
+                    dowLabels.forEach((label,i) => {
+                        const h = Math.max(4, Math.round(dow[i]/dowMax*46));
+                        html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+                            <div style="width:100%;height:${h}px;background:#0f0c5d;border-radius:2px 2px 0 0" title="${label}: ${dow[i]} posts"></div>
+                            <span style="font-size:9px;color:#999">${label}</span>
+                        </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+                html += `</div>`;
+            }
+
+            // ── Co-occurrence table ──
+            if (COOCCUR.pairs?.length) {
+                const pairs = COOCCUR.pairs;
+                html += `<div class="pat-section">
+                    <h3>Narrative Co-occurrence — Bundled Talking Points</h3>
+                    <div class="pat-desc">Topics that appear together in the same post more than chance predicts (Lift &gt;1). High lift = coordinated framing campaign. Click a row to search both topics.</div>
+                    <table class="cooccur-table">
+                        <tr><th>Topic A</th><th>Topic B</th><th>Co-posts</th><th>% of A</th><th>% of B</th><th>Lift</th></tr>`;
+                pairs.slice(0,30).forEach(p => {
+                    const liftCls = p.lift >= 3 ? 'lift-high' : p.lift >= 1.5 ? 'lift-med' : '';
+                    const rowCls  = p.lift >= 3 ? 'corr-high' : p.lift >= 1.5 ? 'corr-med' : '';
+                    html += `<tr class="${rowCls}" style="cursor:pointer" onclick="setS('${esc(p.topic_a)}')">
+                        <td>${esc(p.topic_a)}</td><td>${esc(p.topic_b)}</td>
+                        <td>${p.count.toLocaleString()}</td>
+                        <td>${p.pct_of_a}%</td><td>${p.pct_of_b}%</td>
+                        <td class="${liftCls}">${p.lift}×</td>
+                    </tr>`;
+                });
+                html += `</table></div>`;
+            }
+
+            // ── Tripcodes / named posters ──
+            if (TRIPCODES.posters?.length) {
+                html += `<div class="pat-section">
+                    <h3>Non-Anonymous Posters</h3>
+                    <div class="pat-desc">${TRIPCODES.total_named} non-anonymous identities found. Named users and tripcodes are often coordinators or influencers. Shows what they post about.</div>`;
+                TRIPCODES.posters.forEach(poster => {
+                    const topics = (poster.top_topics||[]).map(([t,n])=>`<span class="trip-topic-tag">${esc(t)} (${n})</span>`).join('');
+                    const flags  = (poster.countries||[]).map(c=>{
+                        const url = `https://s.4cdn.org/image/country/${c.code}.gif`;
+                        return `<img src="${url}" title="${c.code.toUpperCase()}" style="height:11px;margin-right:2px;vertical-align:middle" onerror="this.src='';this.style.background='#e8e0d4';this.removeAttribute('onerror')">`;
+                    }).join('');
+                    html += `<div class="trip-card">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                            ${flags}<span class="trip-identity">${esc(poster.identity)}</span>
+                            <span style="font-size:11px;color:#888">${poster.post_count} posts</span>
+                        </div>
+                        <div style="margin-bottom:6px">${topics}</div>
+                        ${poster.samples.slice(0,1).map(s=>`<div style="font-size:12px;color:#555;font-style:italic">"${esc(s.slice(0,180))}"</div>`).join('')}
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            // ── Topic × Time heatmap ──
+            const topicHours = TIMEHEAT.topic_hours;
+            if (topicHours && Object.keys(topicHours).length) {
+                // Sort topics by total post count, take top 20
+                const sorted = Object.entries(topicHours)
+                    .map(([name, hrs]) => ({ name, hrs, total: hrs.reduce((a,b)=>a+b,0) }))
+                    .filter(t => t.total > 0)
+                    .sort((a,b) => b.total - a.total)
+                    .slice(0, 20);
+
+                const dowLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+                const topicDow = TIMEHEAT.topic_dow || {};
+
+                html += `<div class="pat-section">
+                    <h3>Topic Activity by Hour (UTC)</h3>
+                    <div class="pat-desc">When specific narratives are pushed hardest. Off-hours spikes for certain origins suggest coordinated foreign posting. Bars = post count per UTC hour.</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:12px">
+                    <tr style="color:#999;font-size:10px"><th style="text-align:left;padding:4px 8px 4px 0;width:130px">Topic</th><th style="text-align:left">Activity (0h–23h UTC)</th><th style="text-align:right;width:50px">Peak</th><th style="text-align:right;width:50px">Posts</th></tr>`;
+
+                sorted.forEach(({ name, hrs, total }) => {
+                    const maxH = Math.max(...hrs, 1);
+                    const peakHour = hrs.indexOf(Math.max(...hrs));
+                    const bars = hrs.map((v, h) => {
+                        const pct = Math.round(v / maxH * 100);
+                        const tip = `${h}:00 UTC — ${v} posts`;
+                        return `<div title="${tip}" style="display:inline-block;width:3.5px;height:${Math.max(2, Math.round(pct*0.18))}px;background:#0f0c5d;border-radius:1px;vertical-align:bottom;margin-right:1px"></div>`;
+                    }).join('');
+
+                    // Day-of-week peak
+                    const dowArr = topicDow[name] || [];
+                    const peakDow = dowArr.length ? dowLabels[dowArr.indexOf(Math.max(...dowArr))] : '—';
+
+                    html += `<tr style="border-top:1px solid #ede8e0;cursor:pointer" onclick="setS('${esc(name)}')">
+                        <td style="padding:5px 8px 5px 0;font-weight:500;color:#333">${esc(name)}</td>
+                        <td style="padding:5px 0;vertical-align:bottom;line-height:1">${bars}</td>
+                        <td style="text-align:right;color:#888;font-size:11px">${peakHour}h${peakDow !== '—' ? '<br><span style="font-size:10px">'+peakDow+'</span>' : ''}</td>
+                        <td style="text-align:right;color:#888;font-size:11px">${total.toLocaleString()}</td>
+                    </tr>`;
+                });
+                html += `</table></div>`;
+            }
+
+            el.innerHTML = html;
         }
 
         // ── Refresh All ───────────────────────────────────────────────────────
@@ -437,11 +1082,17 @@
             try {
                 const res = await fetch('/refresh',{method:'POST'});
                 if(res.ok) {
-                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];
-                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy'].forEach(id=>{
+                    if(loadInterval){    clearInterval(loadInterval);    loadInterval=null; }
+                    if(progressInterval){clearInterval(progressInterval);progressInterval=null; }
+                    if(checkInterval){   clearInterval(checkInterval);   checkInterval=null; }
+
+                    POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};
+                    _lastUpdated=null; _dataLoadedAt=0;
+                    ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary'].forEach(id=>{
                         document.getElementById(id).innerHTML='';
                     });
                     document.getElementById('trends').innerHTML='';
+                    document.getElementById('newDataBanner').style.display='none';
                     document.getElementById('progressBar').style.width='0%';
                     document.getElementById('progressPct').textContent='0%';
                     document.getElementById('progressText').textContent='Restarting collection...';
@@ -454,10 +1105,16 @@
         }
 
         // ── Boot ──────────────────────────────────────────────────────────────
-        load();
+        // loadInterval is unused post-freeze but kept for refreshAll compatibility.
+        let loadInterval = null;
+        load(); // attempt immediately
+        // Retry every 3 s if data isn't available yet (harvester still starting).
+        // Stops itself as soon as load() succeeds (_lastUpdated becomes non-null).
+        // Never fires while progress polling is active to avoid race conditions.
         const fastRefresh = setInterval(()=>{
-            if(POSTS.length>0){ clearInterval(fastRefresh); setInterval(load,10000); }
-            else load();
+            if (progressInterval) return;   // harvest in progress — don't race
+            if (_lastUpdated !== null) { clearInterval(fastRefresh); return; } // already loaded
+            load();
         },3000);
     </script>
 </body>

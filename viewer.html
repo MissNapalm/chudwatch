@@ -215,7 +215,7 @@
             const rScale = d3.scaleSqrt().domain([0, maxCount]).range([18, 90]);
             const colorScale = d3.scaleSequential()
                 .domain([0, maxCount])
-                .interpolator(d3.interpolateRgb('#c9a382', '#0f0c5d'));
+                .interpolator(d3.interpolateRgb('#ffaaaa', '#7b0000'));
 
             // Run force layout synchronously so there's no animation jitter
             const sim = d3.forceSimulation(data)

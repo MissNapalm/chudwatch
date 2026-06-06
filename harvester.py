@@ -69,6 +69,27 @@ STOP_TOPICS = {
     'Today', 'Yesterday', 'Week', 'Year', 'Years', 'Money', 'Power',
 }
 
+# Collapsed topic groups: variant terms → single canonical label.
+# A post is counted for the group if it contains ANY variant.
+TOPIC_GROUPS = {
+    'Indians':   ['india', 'indian', 'indians', 'jeet', 'jeets', 'pajeet', 'pajeets', 'poo in loo'],
+    'Jews':      ['jew', 'jews', 'jewish', 'jewry', 'kike', 'kikes', 'heeb', 'heebs'],
+    'White':     ['white', 'whites', 'whiteness', 'white people', 'white man', 'white men',
+                  'white woman', 'white women', 'white race', 'aryan', 'aryans'],
+    'Blacks':    ['black', 'blacks', 'nigger', 'niggers', 'nigga', 'niggas'],
+    'Muslims':   ['muslim', 'muslims', 'islam', 'islamic', 'islamist', 'islamists'],
+    'America':   ['america', 'american', 'americans', 'usa', 'u.s.'],
+    'Russia':    ['russia', 'russian', 'russians'],
+    'China':     ['china', 'chinese', 'chink', 'chinks'],
+    'Israel':    ['israel', 'israeli', 'israelis', 'zionist', 'zionists', 'zionism'],
+    'Ukraine':   ['ukraine', 'ukrainian', 'ukrainians'],
+    'Latinos':   ['latino', 'latinos', 'latina', 'latinas', 'hispanic', 'hispanics',
+                  'mexican', 'mexicans', 'spic', 'spics'],
+}
+
+# Flat set of all variants that belong to a group (for fast exclusion)
+_ALL_GROUP_VARIANTS = {v for variants in TOPIC_GROUPS.values() for v in variants}
+
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -176,22 +197,10 @@ def update_trends(raw_comments):
                 if len(phrase) > 5 and phrase not in STOP_TOPICS:
                     candidates.add(phrase)
 
-        # Pass 2: count posts containing the candidate using substring match —
-        # same method as the viewer's search so the numbers always agree
-        topic_counts = collections.Counter()
-        lower_map = {topic: topic.lower() for topic in candidates}
-        for text in texts:
-            text_lower = text.lower()
-            for topic, topic_lower in lower_map.items():
-                if topic_lower in text_lower:
-                    topic_counts[topic] += 1
-
-        filtered = [(w, c) for w, c in topic_counts.most_common(100)
-                    if w not in STOP_TOPICS and len(w) > 2]
-        _write_trends(filtered[:25], len(texts))
+        _write_trends(_count_topics(candidates, texts), len(texts))
         return
 
-    # Fallback (no spaCy): regex-find capitalized words/phrases, then count posts
+    # Fallback (no spaCy): regex-find capitalized words/phrases as candidates
     stop_lower = {w.lower() for w in STOP_TOPICS}
     candidates = set()
     for text in texts:
@@ -202,15 +211,37 @@ def update_trends(raw_comments):
             if w.lower() not in stop_lower:
                 candidates.add(w)
 
+    _write_trends(_count_topics(candidates, texts), len(texts), fallback=True)
+
+
+def _count_topics(candidates, texts):
+    """
+    Count posts per topic with grouping:
+    - Grouped topics (Jews, White, Indians, etc.) aggregate all variant spellings.
+    - Ungrouped NLP candidates count normally.
+    - Returns sorted list of (topic, count) pairs.
+    """
+    texts_lower = [t.lower() for t in texts]
     topic_counts = collections.Counter()
-    lower_map = {topic: topic.lower() for topic in candidates}
-    for text in texts:
-        text_lower = text.lower()
+
+    # Grouped topics — count posts containing ANY variant
+    for canonical, variants in TOPIC_GROUPS.items():
+        count = sum(1 for tl in texts_lower if any(v in tl for v in variants))
+        if count > 0:
+            topic_counts[canonical] = count
+
+    # Ungrouped candidates — skip anything that's already a group variant
+    ungrouped = {c for c in candidates
+                 if c.lower() not in _ALL_GROUP_VARIANTS
+                 and c not in TOPIC_GROUPS
+                 and c not in STOP_TOPICS}
+    lower_map = {c: c.lower() for c in ungrouped}
+    for tl in texts_lower:
         for topic, topic_lower in lower_map.items():
-            if topic_lower in text_lower:
+            if topic_lower in tl:
                 topic_counts[topic] += 1
 
-    _write_trends(topic_counts.most_common(25), len(texts), fallback=True)
+    return [(w, c) for w, c in topic_counts.most_common(100) if len(w) > 2][:25]
 
 def _write_trends(trends_out, post_count, fallback=False):
     label = "fallback" if fallback else f"from {post_count} posts"

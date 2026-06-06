@@ -211,6 +211,13 @@
         <div class="card">
             <strong>Trending:</strong> <span id="trends"></span>
         </div>
+        <div id="newDataBanner" style="display:none;background:#1a3a1a;color:#5cb85c;padding:8px 16px;border-radius:6px;margin-bottom:8px;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
+            <span>New harvest data available</span>
+            <div style="display:flex;gap:8px">
+                <button onclick="loadNewData()" style="background:#5cb85c;color:#fff;border:none;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold">Load new data</button>
+                <button onclick="this.closest('#newDataBanner').style.display='none'" style="background:transparent;color:#5cb85c;border:1px solid #5cb85c;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px">Dismiss</button>
+            </div>
+        </div>
         <div class="search-area">
             <input type="text" id="search" placeholder="Search posts..." onkeydown="if(event.key==='Enter') render()">
             <button onclick="render()">Search</button>
@@ -259,7 +266,8 @@
 
     <script>
         let POSTS = [], TRENDS = [], SIGNALS = {}, JARGON = {}, CONSPIRACIES = {}, THREADS = [], MEMES = [], ASTROTURF = {}, PULSE = {}, TRANS = {}, FLAGS = {}, TIMEHEAT = {}, TRIPCODES = {}, COOCCUR = {}, LONGITUDINAL = {}, ARCS = {}, NARRATIVES = {};
-        let _lastUpdated = null;   // null = never successfully loaded; set after first render to stop fastRefresh
+        let _lastUpdated = null;   // null = never rendered; frozen after first render until user explicitly reloads
+        let _dataLoadedAt = 0;     // epoch-seconds when data was last rendered; used to detect newer harvests
         let _loadLock = false;     // prevent concurrent load() calls
 
         const stripHTML = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent || ''; };
@@ -313,21 +321,27 @@
                 NARRATIVES   = responses[17].ok ? await responses[17].json().catch(()=>({})) : {};
 
                 const newUpdated = JARGON.updated || met.updated || '';
+                const isFirstLoad = _lastUpdated === null;
                 _lastUpdated = newUpdated || String(t);
+                _dataLoadedAt = t / 1000;
 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('progressStats').innerHTML = '';
+                document.getElementById('newDataBanner').style.display = 'none';
                 document.getElementById('statusBar').textContent =
-                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · fetched ${newUpdated}`;
+                    `${(POSTS.length).toLocaleString()} posts · ${THREADS.length} threads · fetched ${newUpdated} · frozen`;
 
                 document.getElementById('trends').innerHTML = (Array.isArray(TRENDS)?TRENDS:[]).slice(0,20).map(tr => {
                     const name = Array.isArray(tr)?tr[0]:tr.name, count = Array.isArray(tr)?tr[1]:tr.count;
                     return `<span class="trend-chip" onclick="setS('${esc(name)}')">${esc(name)} <b>(${count})</b></span>`;
                 }).join('');
 
-                if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
-                const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
-                switchTab(activeTab);
+                if (isFirstLoad) {
+                    if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
+                    const activeTab = document.querySelector('.tab-btn.active')?.getAttribute('data-tab') || 'posts';
+                    switchTab(activeTab);
+                    startBackgroundCheck();
+                }
             } catch(e) {
                 if (loadInterval) { clearInterval(loadInterval); loadInterval = null; }
                 document.getElementById('loading').style.display = 'block';
@@ -737,6 +751,28 @@
 
         // ── Progress polling ──────────────────────────────────────────────────
         let progressInterval = null;
+        let checkInterval = null;
+
+        function startBackgroundCheck() {
+            if (checkInterval) return;
+            checkInterval = setInterval(async () => {
+                try {
+                    const r = await fetch(`progress.json?t=${Date.now()}`);
+                    if (!r.ok) return;
+                    const p = await r.json();
+                    if ((p.status === 'sleeping' || p.status === 'done') && (p.ts || 0) > _dataLoadedAt) {
+                        document.getElementById('newDataBanner').style.display = 'flex';
+                    }
+                } catch(e) {}
+            }, 15000);
+        }
+
+        async function loadNewData() {
+            document.getElementById('newDataBanner').style.display = 'none';
+            _lastUpdated = null;
+            await load();
+        }
+
         function startProgressPolling() {
             if (progressInterval) return;
             // Record when we started polling so we don't trigger on a stale
@@ -764,8 +800,8 @@
                     // p.ts is the epoch-seconds timestamp written by the harvester.
                     if((p.status==='sleeping'||p.status==='done') && (p.ts||0) > pollStartedAt) {
                         clearInterval(progressInterval); progressInterval=null;
-                        _lastUpdated = null; // force full re-render
-                        await load();
+                        _lastUpdated = null;
+                        load(); // load() will render once then freeze via isFirstLoad
                     }
                 } catch(e){}
             },800);
@@ -1482,9 +1518,11 @@
                 if(res.ok) {
                     if(loadInterval){    clearInterval(loadInterval);    loadInterval=null; }
                     if(progressInterval){clearInterval(progressInterval);progressInterval=null; }
+                    if(checkInterval){   clearInterval(checkInterval);   checkInterval=null; }
 
                     POSTS=[];TRENDS=[];SIGNALS={};JARGON={};CONSPIRACIES={};THREADS=[];MEMES=[];ASTROTURF={};PULSE={};TRANS={};FLAGS={};TIMEHEAT={};TRIPCODES={};COOCCUR={};LONGITUDINAL={};ARCS={};NARRATIVES={};
-                    _lastUpdated=null;
+                    _lastUpdated=null; _dataLoadedAt=0;
+                    document.getElementById('newDataBanner').style.display='none';
                     ['posts','threads','bubbles','memes','signals','jargon','conspiracy','astroturf','trans','countries','boardflags','patterns','aisummary','longitudinal','narratives','arcs','export','method'].forEach(id=>{
                         document.getElementById(id).innerHTML='';
                     });
